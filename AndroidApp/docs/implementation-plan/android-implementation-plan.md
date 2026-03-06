@@ -14,20 +14,22 @@ Technicznie **tak**. IntelliJ IDEA z Android Plugin wystarcza dla POC — BLE wy
 | Komponent | Wymagane? | Uwagi |
 |---|---|---|
 | **IntelliJ IDEA** z Android Plugin | ✅ Obowiązkowe | Alternatywa dla Android Studio |
-| **JDK 17** (Temurin / Corretto) | ✅ Obowiązkowe | AGP 8.x wymaga JDK 17 |
-| **Android SDK** (API 26 + API 34) | ✅ Obowiązkowe | SDK Manager w IDEA |
+| **JDK 21** (Temurin / Corretto) | ✅ Obowiązkowe | Ustawiane jako Gradle JDK w projekcie |
+| **Android SDK** (API 34) | ✅ Obowiązkowe | SDK Manager w IDEA (Android 14.0 "UpsideDownCake") |
 | **Android SDK Build-Tools 34** | ✅ Obowiązkowe | Bundled z SDK |
 | **Gradle 8.6+** (Wrapper) | ✅ Obowiązkowe | `gradle-wrapper.properties` |
 | **Kotlin 2.0+** | ✅ Obowiązkowe | Plugin Kotlin w Gradle |
 | **Docker Desktop** | ✅ Obowiązkowe (Faza 2) | Kafka + PostgreSQL |
 | **Android Studio** | ⚠️ Opcjonalne | Wygoda: Compose Preview, AVD |
 | **Emulator AVD** | ❌ Pomiń | BLE **nie działa** na emulatorze |
-| **Fizyczny telefon Android 8.0+** | ✅ Obowiązkowe | USB Debugging / Wireless ADB |
+| **Fizyczny telefon Android 14+** | ✅ Obowiązkowe | USB Debugging / Wireless ADB |
 
 **Wersje:**
 ```
 AGP: 8.3.x | Kotlin: 2.0.x | Min SDK: 26 | Target/Compile SDK: 34 | Gradle: 8.6+
 ```
+
+> ℹ️ **Uwaga SDK:** Pobierz tylko **Android 14.0 (API 34)** w zakładce SDK Platforms. Nie musisz pobierać API 26 — `minSdk: 26` w `build.gradle` to tylko deklaracja kompatybilności wstecznej w kodzie.
 
 ---
 
@@ -199,7 +201,7 @@ services:
 ## 5. Roadmap
 
 ### Faza 0: Środowisko ⏱️ 1–2 dni
-- [ ] JDK 17, Android Plugin w IntelliJ, SDK API 26 + 34
+- [ ] JDK 21 (ustawione w projekcie), Android Plugin w IntelliJ, SDK API 34
 - [ ] Nowy projekt Android (Empty Compose Activity, Kotlin DSL, Min SDK 26)
 - [ ] `./gradlew assembleDebug` → APK buduje się
 - [ ] `adb devices` → telefon widoczny
