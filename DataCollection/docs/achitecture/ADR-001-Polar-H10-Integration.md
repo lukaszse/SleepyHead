@@ -1,103 +1,103 @@
-# ADR-001: Integracja Sensora Polar H10 (BLE) — Architektura Klienta SaaS
+# ADR-001: Polar H10 Sensor Integration (BLE) — SaaS Client Architecture
 
-**Status:** Zaakceptowany
-**Data:** 2026-03-06
-**Autor:** GitHub Copilot (w imieniu Użytkownika)
+**Status:** Proposed
+**Date:** 2026-03-06
+**Author:** Lukasz Seremak
 
-## 1. Kontekst
-Celem projektu **SleepyHead** jest pobieranie danych biometrycznych (tętno HR, zmienność tętna HRV/RR-intervals) z pasa piersiowego **Polar H10** w czasie rzeczywistym i przesyłanie ich do zdalnego backendu.
+## 1. Context
+The goal of the **SleepyHead** project is to collect biometric data (HR heart rate, HRV/RR-intervals heart rate variability) from the **Polar H10** chest strap in real-time and transmit it to a remote backend.
 
-Projekt ma być aplikacją **SaaS** — dane biometryczne trafiają bezpośrednio z urządzenia klienckiego do **zdalnego backendu w chmurze** (rozważany: AWS Lambda lub podobny serwis serverless). Nie ma potrzeby utrzymywania lokalnego procesu pośredniczącego na laptopie użytkownika.
+The project is intended to be a **SaaS** application — biometric data flows directly from the client device to a **remote cloud backend** (under consideration: AWS Lambda or similar serverless service). There is no need to maintain a local intermediary process on the user's laptop.
 
-Preferowanym językiem programowania jest **Kotlin** (zarówno na kliencie Android, jak i na backendzie JVM).
+The preferred programming language is **Kotlin** (both for the Android client and the JVM backend).
 
-### 1.1 Architektura Docelowa (SaaS)
+### 1.1 Target Architecture (SaaS)
 ```
-[Polar H10] --BLE--> [Aplikacja Android (Kotlin)] --HTTPS/WSS--> [Backend w Chmurze (AWS Lambda / Kotlin)]
+[Polar H10] --BLE--> [Android App (Kotlin)] --HTTPS/WSS--> [Cloud Backend (AWS Lambda / Kotlin)]
 ```
-Telefon użytkownika jest **jedynym punktem wejścia danych**. Backend przetwarza i przechowuje dane. Nie jest wymagane żadne oprogramowanie po stronie komputera użytkownika.
+The user's phone is the **sole data entry point**. The backend processes and stores data. No software is required on the user's computer.
 
-## 2. Rozważane Opcje Technologiczne
+## 2. Technology Options Considered
 
-### ✅ Opcja A: Aplikacja Android (Kotlin) — WYBRANA
+### ✅ Option A: Android App (Kotlin) — SELECTED
 
-Natywna aplikacja Android w Kotlinie korzystająca z oficjalnego **Polar BLE SDK dla Androida**.
+Native Android application in Kotlin using the official **Polar BLE SDK for Android**.
 
-*   **Zalety:**
-    *   Android BLE API jest dojrzałe, stabilne i dobrze udokumentowane.
-    *   Oficjalny **Polar BLE SDK** (`com.polar.sdk`) dramatycznie upraszcza kod BLE — `api.startHrStreaming(deviceId)` zamiast ręcznego parsowania GATT.
-    *   Cały stack w **Kotlinie** — wspólne modele danych z backendem (`data class`, JSON/Protobuf).
-    *   Telefon użytkownika = jedyne wymagane urządzenie. Brak zależności od laptopa.
-    *   Bezpośrednie przesyłanie danych do chmury (HTTPS/WebSocket) bez pośredników.
-    *   **Szacowany czas do MVP:** 3–7 dni (z Polar SDK).
-*   **Wady:**
-    *   Wymaga nauki ekosystemu Android (cykl życia, uprawnienia runtime, Gradle).
-    *   Działanie w tle podczas snu wymaga `ForegroundService`.
-    *   Android Studio (~10 GB) — cięższe środowisko niż prosta aplikacja konsolowa.
+*   **Pros:**
+    *   Android BLE API is mature, stable, and well-documented.
+    *   Official **Polar BLE SDK** (`com.polar.sdk`) dramatically simplifies BLE code — `api.startHrStreaming(deviceId)` instead of manual GATT parsing.
+    *   Entire stack in **Kotlin** — shared data models with backend (`data class`, JSON/Protobuf).
+    *   User's phone = only required device. No laptop dependency.
+    *   Direct data transmission to cloud (HTTPS/WebSocket) without intermediaries.
+    *   **Estimated time to MVP:** 3–7 days (with Polar SDK).
+*   **Cons:**
+    *   Requires learning the Android ecosystem (lifecycle, runtime permissions, Gradle).
+    *   Background operation during sleep requires `ForegroundService`.
+    *   Android Studio (~10 GB) — heavier environment than a simple console application.
 
-### ❌ Opcja B: Web Bluetooth API (Przeglądarka)
-Odrzucona. Wymaga otwartej przeglądarki, brak działania w tle, nie nadaje się do rejestrowania danych podczas snu.
+### ❌ Option B: Web Bluetooth API (Browser)
+Rejected. Requires open browser, no background operation, not suitable for data logging during sleep.
 
-### ❌ Opcja C: Node.js Bridge (Laptop jako pośrednik)
-Odrzucona. Wymaga uruchomionego laptopa przy każdej sesji — sprzeczne z założeniem SaaS i mobile-first.
+### ❌ Option C: Node.js Bridge (Laptop as intermediary)
+Rejected. Requires running laptop for each session — conflicts with SaaS and mobile-first assumptions.
 
-### ❌ Opcja D: Laptop + Ktor Server (Sieć lokalna)
-Odrzucona. Wymaga laptopa w sieci lokalnej i dodatkowego oprogramowania po stronie użytkownika — sprzeczne z architekturą SaaS.
+### ❌ Option D: Laptop + Ktor Server (Local network)
+Rejected. Requires laptop on local network and additional user-side software — conflicts with SaaS architecture.
 
 ---
 
-### Tabela Porównawcza
+### Comparison Table
 
-| Kryterium | Opcja A (Android) | Opcja B (Web BT) | Opcja C (Node.js) | Opcja D (Laptop) |
+| Criterion | Option A (Android) | Option B (Web BT) | Option C (Node.js) | Option D (Laptop) |
 |---|---|---|---|---|
-| **Język** | Kotlin | JavaScript | Kotlin + JS | Kotlin |
-| **Wymaga laptopa** | ❌ Nie | ⚠️ Komputer | ✅ Tak | ✅ Tak |
-| **Działa w tle** | ✅ ForegroundService | ❌ Nie | ✅ Tak | ✅ Tak |
-| **Zgodność z SaaS** | ✅ Tak | ❌ Nie | ❌ Nie | ❌ Nie |
-| **Stabilność BLE** | ✅ Bardzo dobra | ✅ Dobra | ✅ Dobra | ✅ Dobra |
-| **Czas do MVP** | 3–7 dni | 0.5–1 dzień | 1–3 dni | 2–5 dni |
+| **Language** | Kotlin | JavaScript | Kotlin + JS | Kotlin |
+| **Requires laptop** | ❌ No | ⚠️ Computer | ✅ Yes | ✅ Yes |
+| **Runs in background** | ✅ ForegroundService | ❌ No | ✅ Yes | ✅ Yes |
+| **SaaS compatible** | ✅ Yes | ❌ No | ❌ No | ❌ No |
+| **BLE stability** | ✅ Very good | ✅ Good | ✅ Good | ✅ Good |
+| **Time to MVP** | 3–7 days | 0.5–1 day | 1–3 days | 2–5 days |
 
-## 3. Decyzja
+## 3. Decision
 
-**Wybrano Opcję A: Aplikacja Android (Kotlin).**
+**Option A Selected: Android App (Kotlin).**
 
-Jest to jedyne podejście zgodne z założeniem projektu SaaS — użytkownik potrzebuje wyłącznie telefonu z Androidem. Dane trafiają z Polar H10 przez BLE bezpośrednio do backendu w chmurze.
+This is the only approach consistent with the SaaS project assumption — the user only needs an Android phone. Data flows from Polar H10 via BLE directly to the cloud backend.
 
-### Stos technologiczny
+### Technology Stack
 
-| Warstwa | Technologia |
+| Layer | Technology |
 |---|---|
-| BLE (odczyt danych) | Polar BLE SDK for Android (`com.polar.sdk`) |
-| Aplikacja kliencka | Android (Kotlin, min. API 26 / Android 8.0) |
-| Transport do chmury | HTTPS (Retrofit / Ktor Client) lub WebSocket (OkHttp) |
-| Backend | AWS Lambda (Kotlin/JVM) lub Ktor Server |
-| Uprawnienia Android | `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, `FOREGROUND_SERVICE` |
+| BLE (data reading) | Polar BLE SDK for Android (`com.polar.sdk`) |
+| Client application | Android (Kotlin, min. API 26 / Android 8.0) |
+| Cloud transport | HTTPS (Retrofit / Ktor Client) or WebSocket (OkHttp) |
+| Backend | AWS Lambda (Kotlin/JVM) or Ktor Server |
+| Android permissions | `BLUETOOTH_SCAN`, `BLUETOOTH_CONNECT`, `FOREGROUND_SERVICE` |
 
-### Kluczowe decyzje implementacyjne
+### Key Implementation Decisions
 
-1.  **`ForegroundService`** — wymagany do działania w tle podczas snu (Android zabija procesy w tle). Użytkownik widzi powiadomienie "Sesja snu aktywna".
-2.  **Polar BLE SDK** zamiast czystego Android BLE API — mniej kodu, oficjalne wsparcie Polar, obsługa RR-intervals out-of-the-box.
-3.  **Transport:** HTTPS POST co N sekund (prostsze, buforowanie na wypadek utraty sieci) lub WebSocket (strumieniowanie real-time). Decyzja w osobnym ADR.
+1.  **`ForegroundService`** — required for background operation during sleep (Android kills background processes). User sees "Sleep session active" notification.
+2.  **Polar BLE SDK** instead of raw Android BLE API — less code, official Polar support, RR-intervals handling out-of-the-box.
+3.  **Transport:** HTTPS POST every N seconds (simpler, buffering in case of network loss) or WebSocket (real-time streaming). Decision in separate ADR.
 
-## 4. Szczegóły Implementacyjne
+## 4. Implementation Details
 
-### UUID Serwisów Polar H10
-*   **Heart Rate Service:** `0000180d-0000-1000-8000-00805f9b34fb` (Skrót: `180D`)
-*   **Heart Rate Measurement Characteristic:** `00002a37-0000-1000-8000-00805f9b34fb` (Skrót: `2A37`)
+### Polar H10 Service UUIDs
+*   **Heart Rate Service:** `0000180d-0000-1000-8000-00805f9b34fb` (Short: `180D`)
+*   **Heart Rate Measurement Characteristic:** `00002a37-0000-1000-8000-00805f9b34fb` (Short: `2A37`)
 
-> **Uwaga:** Przy użyciu Polar BLE SDK powyższe UUID są obsługiwane przez SDK automatycznie — nie ma potrzeby ręcznego zarządzania GATT.
+> **Note:** When using Polar BLE SDK, the above UUIDs are handled automatically by the SDK — no need for manual GATT management.
 
-### Protokół Danych (HRBL — dla referencji / fallback bez SDK)
-Dane przychodzą jako tablica bajtów. Parsowanie musi uwzględniać:
+### Data Protocol (HRBL — for reference / fallback without SDK)
+Data arrives as a byte array. Parsing must consider:
 1.  **Byte 0 (Flags):**
-    *   Bit 0: Format tętna (0 = UINT8, 1 = UINT16).
-    *   Bit 4: Obecność interwałów RR (0 = brak, 1 = obecne).
-2.  **Byte 1 (Heart Rate):** Wartość BPM.
-3.  **Byte 2+ (RR Intervals):** Jeśli flaga RR jest ustawiona, kolejne pary bajtów (Little Endian uint16) reprezentują interwały w jednostkach 1/1024 sekundy.
+    *   Bit 0: Heart rate format (0 = UINT8, 1 = UINT16).
+    *   Bit 4: RR intervals presence (0 = absent, 1 = present).
+2.  **Byte 1 (Heart Rate):** BPM value.
+3.  **Byte 2+ (RR Intervals):** If RR flag is set, subsequent byte pairs (Little Endian uint16) represent intervals in units of 1/1024 second.
 
-### Konwersja danych (Kotlin)
+### Data Conversion (Kotlin)
 ```kotlin
-// Konwersja surowego interwału RR na milisekundy
-val rawRrInterval = 845 // wartość odczytana z 2 bajtów
+// Convert raw RR interval to milliseconds
+val rawRrInterval = 845 // value read from 2 bytes
 val milliseconds = (rawRrInterval / 1024.0) * 1000.0
 ```
