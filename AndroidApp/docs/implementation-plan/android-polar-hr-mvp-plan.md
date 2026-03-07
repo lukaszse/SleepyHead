@@ -23,15 +23,15 @@ com.example.androidapp/
 │       └── HrData.kt                           # Value Object / Entity
 │
 ├── application/                                # 2. APPLICATION (Orkiestracja)
-│   ├── usecase/
-│   │   ├── ConnectDeviceUseCase.kt             # Interfejs (Definicja Przypadku Użycia)
-│   │   └── GetHeartRateStreamUseCase.kt        # Interfejs (Definicja Przypadku Użycia)
-│   └── port/
-│       ├── input/
-│       │   ├── ConnectDeviceInputPort.kt       # Implementacja UseCase (Input Port)
-│       │   └── GetHeartRateStreamInputPort.kt  # Implementacja UseCase (Input Port)
-│       └── output/
-│           └── HeartRateMonitorPort.kt         # Output Port (Interfejs dla Frameworku)
+│   ├── port/
+│   │   ├── input/
+│   │   │   ├── ConnectDeviceUseCase.kt         # Input Port = Interfejs UseCase
+│   │   │   └── GetHeartRateStreamUseCase.kt    # Input Port = Interfejs UseCase
+│   │   └── output/
+│   │       └── HeartRateMonitorPort.kt         # Output Port = Interfejs dla Frameworku
+│   └── usecase/
+│       ├── ConnectDeviceService.kt             # Implementacja Input Portu (UseCase)
+│       └── GetHeartRateStreamService.kt        # Implementacja Input Portu (UseCase)
 │
 └── framework/                                  # 3. FRAMEWORK (Detale techniczne)
     ├── adapter/
@@ -39,7 +39,7 @@ com.example.androidapp/
     │   │   └── ui/                             # Driving Adapter (Android UI)
     │   │       ├── MainActivity.kt
     │   │       ├── HrScreen.kt
-    │   │       └── HrViewModel.kt
+    │   │       └── HrViewModel.kt              # zależy od interfejsów z port/input/
     │   └── output/
     │       └── polar/                          # Driven Adapter (Polar SDK)
     │           └── PolarBleAdapter.kt          # Implementacja HeartRateMonitorPort
@@ -80,31 +80,40 @@ interface HeartRateMonitorPort {
 }
 ```
 
-#### 2b. Use Cases (`usecase`)
-Interfejsy definiujące, co aplikacja potrafi robić (logika biznesowa).
+#### 2b. Input Ports — Use Cases (`port/input`)
+**Interfejsy** definiujące "przednie drzwi" aplikacji. Framework zależy od tych interfejsów, nigdy od implementacji.
 
 ```kotlin
+// application/port/input/ConnectDeviceUseCase.kt
 interface ConnectDeviceUseCase {
     fun connect(deviceId: String)
     fun disconnect(deviceId: String)
 }
 
+// application/port/input/GetHeartRateStreamUseCase.kt
 interface GetHeartRateStreamUseCase {
     operator fun invoke(deviceId: String): Flow<HrData>
 }
 ```
 
-#### 2c. Input Ports (`port/input`)
-Implementacja przypadków użycia (Porty Wejściowe).
+#### 2c. Use Case Implementations (`usecase`)
+**Implementacje** interfejsów. Orkiestrują logikę, delegując do Output Portów.
 
 ```kotlin
-class ConnectDeviceInputPort(private val monitorPort: HeartRateMonitorPort) : ConnectDeviceUseCase {
+// application/usecase/ConnectDeviceService.kt
+class ConnectDeviceService(
+    private val monitorPort: HeartRateMonitorPort
+) : ConnectDeviceUseCase {
     override fun connect(deviceId: String) = monitorPort.connect(deviceId)
     override fun disconnect(deviceId: String) = monitorPort.disconnect(deviceId)
 }
 
-class GetHeartRateStreamInputPort(private val monitorPort: HeartRateMonitorPort) : GetHeartRateStreamUseCase {
-    override fun invoke(deviceId: String): Flow<HrData> = monitorPort.getHeartRateStream(deviceId)
+// application/usecase/GetHeartRateStreamService.kt
+class GetHeartRateStreamService(
+    private val monitorPort: HeartRateMonitorPort
+) : GetHeartRateStreamUseCase {
+    override fun invoke(deviceId: String): Flow<HrData> =
+        monitorPort.getHeartRateStream(deviceId)
 }
 ```
 
@@ -139,11 +148,14 @@ class HrViewModel(
 #### 4b. Ekran i Uprawnienia (`MainActivity`, `HrScreen`)
 1.  **Uprawnienia (Android 12+):** W `MainActivity` (entry point frameworku) obsłuż `BLUETOOTH_SCAN` i `BLUETOOTH_CONNECT` używając `ActivityResultContracts`.
 2.  Dopiero po uzyskaniu uprawnień wyświetl `HrScreen`.
-3.  Wstrzyknij zależności:
+3.  Wstrzyknij zależności (DI łączy warstwy — ViewModel widzi tylko interfejs):
     ```kotlin
-    val adapter = PolarBleAdapter(context) // Framework
-    val useCase = GetHeartRateStreamInputPort(adapter) // Application
-    val viewModel = HrViewModelFactory(useCase).create() // UI Adapter
+    // Framework/app — jedyne miejsce gdzie warstwy są sklejone
+    val polarAdapter = PolarBleAdapter(context)          // Framework → implementuje HeartRateMonitorPort
+    val streamService = GetHeartRateStreamService(polarAdapter) // Application → implementuje GetHeartRateStreamUseCase
+    val connectService = ConnectDeviceService(polarAdapter)     // Application → implementuje ConnectDeviceUseCase
+    // ViewModel otrzymuje INTERFEJSY (UseCase), nie konkretne klasy
+    val viewModel = HrViewModel(connectService, streamService)
     ```
 
 ---
