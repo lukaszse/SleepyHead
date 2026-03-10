@@ -51,10 +51,11 @@ com.example.androidapp/
 
 ## 3. Kroki implementacji
 
-### Krok 1 — Warstwa Domeny (Domain)
+### ✅ Krok 1 — Warstwa Domeny (Domain)
 
 **Cel:** Zdefiniować język domenowy niezależny od technologii.
 **Pliki:** `domain/model/HrData.kt`
+**Status:** Ukończony (2026-03-10)
 
 ```kotlin
 data class HrData(
@@ -65,9 +66,10 @@ data class HrData(
 
 ---
 
-### Krok 2 — Warstwa Aplikacji (Application)
+### ✅ Krok 2 — Warstwa Aplikacji (Application)
 
 **Cel:** Zdefiniować Przypadki Użycia (Interfejsy) oraz ich realizację przez Porty Wejściowe (Implementacja).
+**Status:** Ukończony (2026-03-10)
 
 #### 2a. Output Port (`port/output`)
 Interfejs dla "tylnych drzwi" aplikacji (wyjście do sprzętu).
@@ -119,10 +121,11 @@ class GetHeartRateStreamService(
 
 ---
 
-### Krok 3 — Warstwa Framework: Adapter Wyjściowy (Polar)
+### ✅ Krok 3 — Warstwa Framework: Adapter Wyjściowy (Polar)
 
 **Cel:** Implementacja portu przy użyciu konkretnej biblioteki (Polar SDK).
 **Lokalizacja:** `framework/adapter/output/polar`
+**Status:** Ukończony (2026-03-10)
 
 1.  Dodaj zależność `kotlinx-coroutines-rx3` w `build.gradle.kts`.
 2.  Utwórz `PolarBleAdapter` implementujący `HeartRateMonitorPort`.
@@ -130,10 +133,11 @@ class GetHeartRateStreamService(
 
 ---
 
-### Krok 4 — Warstwa Framework: Adapter Wejściowy (UI)
+### ✅ Krok 4 — Warstwa Framework: Adapter Wejściowy (UI)
 
 **Cel:** Interfejs dla użytkownika. Traktujemy UI jako "wtyczkę" sterującą aplikacją.
 **Lokalizacja:** `framework/adapter/input/ui`
+**Status:** Ukończony (2026-03-10)
 
 #### 4a. ViewModel (`HrViewModel`)
 ViewModel komunikuje się **WYŁĄCZNIE** z warstwą Application (Use Cases), nigdy bezpośrednio z Adapterem Polara.
@@ -169,8 +173,8 @@ Architektura heksagonalna ułatwia testowanie kluczowej logiki bez Androida.
 
 ## 5. Definicja ukończenia
 
-- [ ] Struktura katalogów zgodna z sekcją 2.
-- [ ] Warstwa `domain` nie ma `import android.*`.
-- [ ] Warstwa `application` zależy tylko od `domain`.
+- [x] Struktura katalogów zgodna z sekcją 2.
+- [x] Warstwa `domain` nie ma `import android.*`.
+- [x] Warstwa `application` zależy tylko od `domain`.
 - [ ] Działa połączenie z paskiem i wyświetlanie tętna na telefonie.
 
