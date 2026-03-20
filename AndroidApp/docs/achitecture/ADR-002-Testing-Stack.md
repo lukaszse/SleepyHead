@@ -8,7 +8,7 @@
 
 The SleepyHead project is a native Android application written entirely in **Kotlin** using a hexagonal architecture (Ports & Adapters). The MVP layer is complete — we now need a testing stack to cover:
 
-1. **Application layer** — use cases (`ConnectDeviceService`, `GetHeartRateStreamService`) with a mocked `HeartRateMonitorPort`.
+1. **Application layer** — input ports (`ConnectDeviceInputPort`, `GetHeartRateStreamInputPort`) implementing use case interfaces, with a mocked `HeartRateMonitorPort`.
 2. **ViewModel** (`HrViewModel`) — reactive logic based on `StateFlow` and `kotlinx.coroutines.flow.Flow`.
 3. **UI** (`HrScreen`) — Compose instrumented tests (on device/emulator).
 
@@ -55,10 +55,10 @@ Spock is a BDD (Behavior-Driven Development) framework based on **Groovy**, popu
 def "should delegate connect to monitor port"() {
     given:
     def port = Mock(HeartRateMonitorPort)
-    def service = new ConnectDeviceService(port)
+    def inputPort = new ConnectDeviceInputPort(port)
 
     when:
-    service.connect("ABC123")
+    inputPort.connect("ABC123")
 
     then:
     1 * port.connect("ABC123")
@@ -91,13 +91,13 @@ def "should delegate connect to monitor port"() {
 Kotest is a Kotlin-native BDD framework — the natural answer to "I want BDD, but in Kotlin":
 
 ```kotlin
-class ConnectDeviceServiceTest : BehaviorSpec({
-    given("a ConnectDeviceService with mocked port") {
+class ConnectDeviceInputPortTest : BehaviorSpec({
+    given("a ConnectDeviceInputPort with mocked port") {
         val port = mockk<HeartRateMonitorPort>()
-        val service = ConnectDeviceService(port)
+        val inputPort = ConnectDeviceInputPort(port)
 
         `when`("connect is called") {
-            service.connect("ABC123")
+            inputPort.connect("ABC123")
 
             then("it delegates to the port") {
                 verify { port.connect("ABC123") }
@@ -132,9 +132,9 @@ testImplementation("app.cash.turbine:turbine:1.2.0")
 app/src/
 ├── test/kotlin/                                   # Unit tests (JVM) — ./gradlew test
 │   └── com/example/androidapp/
-│       ├── application/usecase/
-│       │   ├── ConnectDeviceServiceTest.kt        # MockK + JUnit 4
-│       │   └── GetHeartRateStreamServiceTest.kt   # MockK + Turbine + coroutines-test
+│       ├── application/port/input/
+│       │   ├── ConnectDeviceInputPortTest.kt      # MockK + JUnit 4
+│       │   └── GetHeartRateStreamInputPortTest.kt # MockK + Turbine + coroutines-test
 │       └── framework/adapter/input/ui/
 │           └── HrViewModelTest.kt                 # MockK + Turbine + coroutines-test
 │
@@ -147,21 +147,21 @@ app/src/
 ### Example test (pattern for the project)
 
 ```kotlin
-class ConnectDeviceServiceTest {
+class ConnectDeviceInputPortTest {
 
     private val port = mockk<HeartRateMonitorPort>(relaxed = true)
-    private val service = ConnectDeviceService(port)
+    private val inputPort = ConnectDeviceInputPort(port)
 
     @Test
     fun `connect delegates to HeartRateMonitorPort`() {
-        service.connect("ABC123")
+        inputPort.connect("ABC123")
 
         verify(exactly = 1) { port.connect("ABC123") }
     }
 
     @Test
     fun `disconnect delegates to HeartRateMonitorPort`() {
-        service.disconnect("ABC123")
+        inputPort.disconnect("ABC123")
 
         verify(exactly = 1) { port.disconnect("ABC123") }
     }

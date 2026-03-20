@@ -15,9 +15,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import com.example.androidapp.application.usecase.ConnectDeviceService
-import com.example.androidapp.application.usecase.GetHeartRateStreamService
-import com.example.androidapp.application.usecase.ScanForDevicesService
+import com.example.androidapp.application.port.input.ConnectDeviceInputPort
+import com.example.androidapp.application.port.input.GetHeartRateStreamInputPort
+import com.example.androidapp.application.port.input.ScanForDevicesInputPort
 import com.example.androidapp.framework.adapter.output.polar.PolarBleAdapter
 import com.example.androidapp.ui.theme.AndroidAppTheme
 
@@ -44,10 +44,10 @@ class MainActivity : ComponentActivity() {
 
         // --- Manual Dependency Injection (framework layer) ---
         val polarAdapter = PolarBleAdapter(applicationContext)
-        val connectService = ConnectDeviceService(polarAdapter)
-        val streamService = GetHeartRateStreamService(polarAdapter)
-        val scanService = ScanForDevicesService(polarAdapter)
-        val viewModel = HrViewModel(connectService, streamService, scanService)
+        val connectInputPort = ConnectDeviceInputPort(polarAdapter)
+        val streamInputPort = GetHeartRateStreamInputPort(polarAdapter)
+        val scanInputPort = ScanForDevicesInputPort(polarAdapter)
+        val viewModel = HrViewModel(connectInputPort, streamInputPort, scanInputPort)
 
         setContent {
             AndroidAppTheme {

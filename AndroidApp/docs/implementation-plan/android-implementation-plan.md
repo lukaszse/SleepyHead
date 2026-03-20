@@ -225,8 +225,8 @@ services:
 
 - [x] Zależności: `polar-ble-sdk`, `kotlinx-coroutines`, `kotlinx-coroutines-rx3` dodane w `build.gradle.kts`
 - [x] Warstwa domenowa: `HrData` (bpm, rrIntervals)
-- [x] Warstwa aplikacji: `ConnectDeviceUseCase`, `GetHeartRateStreamUseCase`, `HeartRateMonitorPort`
-- [x] Implementacje use case: `ConnectDeviceService`, `GetHeartRateStreamService`
+- [x] Warstwa aplikacji: `ConnectDeviceUseCase`, `GetHeartRateStreamUseCase`, `ScanForDevicesUseCase` (interfejsy), `HeartRateMonitorPort`
+- [x] Input Porty: `ConnectDeviceInputPort`, `GetHeartRateStreamInputPort`, `ScanForDevicesInputPort`
 - [x] `PolarBleAdapter` (Driven Adapter) — `connect()` + `getHeartRateStream()` + callbacki BLE
 - [x] `HrViewModel` — StateFlow: `hrData`, `error`, `isConnected`
 - [x] `HrScreen` — wyświetla BPM (96sp), RR-interwały, przycisk Connect/Disconnect

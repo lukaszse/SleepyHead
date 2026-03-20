@@ -1,4 +1,4 @@
-package com.example.androidapp.application.usecase
+package com.example.androidapp.application.port.input
 
 import app.cash.turbine.test
 import com.example.androidapp.application.port.output.HeartRateMonitorPort
@@ -11,10 +11,10 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class GetHeartRateStreamServiceTest {
+class GetHeartRateStreamInputPortTest {
 
     private val port = mockk<HeartRateMonitorPort>(relaxed = true)
-    private val service = GetHeartRateStreamService(port)
+    private val inputPort = GetHeartRateStreamInputPort(port)
 
     @Test
     fun `invoke returns flow from HeartRateMonitorPort`() {
@@ -22,7 +22,7 @@ class GetHeartRateStreamServiceTest {
             val expected = HrData(bpm = 72, rrIntervals = listOf(833))
             every { port.getHeartRateStream("ABC123") } returns flowOf(expected)
 
-            service("ABC123").test {
+            inputPort("ABC123").test {
                 assertEquals(expected, awaitItem())
                 awaitComplete()
             }
@@ -37,7 +37,7 @@ class GetHeartRateStreamServiceTest {
             val third = HrData(bpm = 80, rrIntervals = listOf(750, 745))
             every { port.getHeartRateStream("ABC123") } returns flowOf(first, second, third)
 
-            service("ABC123").test {
+            inputPort("ABC123").test {
                 assertEquals(first, awaitItem())
                 assertEquals(second, awaitItem())
                 assertEquals(third, awaitItem())
@@ -53,7 +53,7 @@ class GetHeartRateStreamServiceTest {
                 throw RuntimeException("BLE connection lost")
             }
 
-            service("ABC123").test {
+            inputPort("ABC123").test {
                 assertEquals("BLE connection lost", awaitError().message)
             }
         }
@@ -67,7 +67,7 @@ class GetHeartRateStreamServiceTest {
                 HrData(bpm = 60, rrIntervals = listOf(1000))
             )
 
-            service(deviceId).test {
+            inputPort(deviceId).test {
                 awaitItem()
                 awaitComplete()
             }
@@ -76,3 +76,4 @@ class GetHeartRateStreamServiceTest {
         }
     }
 }
+

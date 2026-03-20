@@ -1,10 +1,12 @@
-package com.example.androidapp.application.port.input
+package com.example.androidapp.application.usecase
 
 import com.example.androidapp.domain.model.FoundDevice
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Input port (use case) for scanning for nearby heart-rate devices.
+ * Use case interface for scanning for nearby heart-rate devices.
+ *
+ * Implementations (Input Ports) orchestrate domain logic and delegate to Output Ports.
  */
 interface ScanForDevicesUseCase {
 

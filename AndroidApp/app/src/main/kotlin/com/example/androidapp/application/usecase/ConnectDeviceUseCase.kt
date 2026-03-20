@@ -1,7 +1,9 @@
-package com.example.androidapp.application.port.input
+package com.example.androidapp.application.usecase
 
 /**
- * Input port (use case) for managing the connection lifecycle of a heart-rate device.
+ * Use case interface for managing the connection lifecycle of a heart-rate device.
+ *
+ * Implementations (Input Ports) orchestrate domain logic and delegate to Output Ports.
  */
 interface ConnectDeviceUseCase {
 

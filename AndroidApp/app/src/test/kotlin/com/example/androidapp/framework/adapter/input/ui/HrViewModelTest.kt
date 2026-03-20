@@ -1,9 +1,9 @@
 package com.example.androidapp.framework.adapter.input.ui
 
 import app.cash.turbine.test
-import com.example.androidapp.application.port.input.ConnectDeviceUseCase
-import com.example.androidapp.application.port.input.GetHeartRateStreamUseCase
-import com.example.androidapp.application.port.input.ScanForDevicesUseCase
+import com.example.androidapp.application.usecase.ConnectDeviceUseCase
+import com.example.androidapp.application.usecase.GetHeartRateStreamUseCase
+import com.example.androidapp.application.usecase.ScanForDevicesUseCase
 import com.example.androidapp.domain.model.FoundDevice
 import com.example.androidapp.domain.model.HrData
 import io.mockk.coEvery

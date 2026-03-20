@@ -20,18 +20,21 @@ Doprowadzić aplikację Android do stanu, w którym łączy się z Polar H10 i w
 com.example.androidapp/
 ├── domain/                                     # 1. DOMAIN (Serce, brak zależności)
 │   └── model/
-│       └── HrData.kt                           # Value Object / Entity
+│       ├── HrData.kt                           # Value Object / Entity
+│       └── FoundDevice.kt                      # Value Object — wykryte urządzenie BLE
 │
 ├── application/                                # 2. APPLICATION (Orkiestracja)
-│   ├── port/
-│   │   ├── input/
-│   │   │   ├── ConnectDeviceUseCase.kt         # Input Port = Interfejs UseCase
-│   │   │   └── GetHeartRateStreamUseCase.kt    # Input Port = Interfejs UseCase
-│   │   └── output/
-│   │       └── HeartRateMonitorPort.kt         # Output Port = Interfejs dla Frameworku
-│   └── usecase/
-│       ├── ConnectDeviceService.kt             # Implementacja Input Portu (UseCase)
-│       └── GetHeartRateStreamService.kt        # Implementacja Input Portu (UseCase)
+│   ├── usecase/                                # Interfejsy Use Case (kontrakty)
+│   │   ├── ConnectDeviceUseCase.kt             # Interfejs — zarządzanie połączeniem
+│   │   ├── GetHeartRateStreamUseCase.kt        # Interfejs — strumień HR
+│   │   └── ScanForDevicesUseCase.kt            # Interfejs — skanowanie urządzeń
+│   └── port/
+│       ├── input/                              # Input Ports (implementacje Use Case'ów)
+│       │   ├── ConnectDeviceInputPort.kt       # Implementacja ConnectDeviceUseCase
+│       │   ├── GetHeartRateStreamInputPort.kt  # Implementacja GetHeartRateStreamUseCase
+│       │   └── ScanForDevicesInputPort.kt      # Implementacja ScanForDevicesUseCase
+│       └── output/                             # Output Ports (interfejsy dla adapterów wyjściowych)
+│           └── HeartRateMonitorPort.kt         # Interfejs dla adaptera BLE
 │
 └── framework/                                  # 3. FRAMEWORK (Detale techniczne)
     ├── adapter/
@@ -39,7 +42,7 @@ com.example.androidapp/
     │   │   └── ui/                             # Driving Adapter (Android UI)
     │   │       ├── MainActivity.kt
     │   │       ├── HrScreen.kt
-    │   │       └── HrViewModel.kt              # zależy od interfejsów z port/input/
+    │   │       └── HrViewModel.kt              # zależy od interfejsów z usecase/
     │   └── output/
     │       └── polar/                          # Driven Adapter (Polar SDK)
     │           └── PolarBleAdapter.kt          # Implementacja HeartRateMonitorPort
@@ -82,40 +85,54 @@ interface HeartRateMonitorPort {
 }
 ```
 
-#### 2b. Input Ports — Use Cases (`port/input`)
-**Interfejsy** definiujące "przednie drzwi" aplikacji. Framework zależy od tych interfejsów, nigdy od implementacji.
+#### 2b. Use Cases (`usecase/`)
+**Interfejsy** definiujące kontrakty aplikacji. Framework (ViewModel) zależy od tych interfejsów, nigdy od implementacji.
 
 ```kotlin
-// application/port/input/ConnectDeviceUseCase.kt
+// application/usecase/ConnectDeviceUseCase.kt
 interface ConnectDeviceUseCase {
-    fun connect(deviceId: String)
+    suspend fun connect(deviceId: String)
     fun disconnect(deviceId: String)
 }
 
-// application/port/input/GetHeartRateStreamUseCase.kt
+// application/usecase/GetHeartRateStreamUseCase.kt
 interface GetHeartRateStreamUseCase {
     operator fun invoke(deviceId: String): Flow<HrData>
 }
+
+// application/usecase/ScanForDevicesUseCase.kt
+interface ScanForDevicesUseCase {
+    operator fun invoke(): Flow<FoundDevice>
+}
 ```
 
-#### 2c. Use Case Implementations (`usecase`)
-**Implementacje** interfejsów. Orkiestrują logikę, delegując do Output Portów.
+#### 2c. Input Ports (`port/input/`)
+**Implementacje** interfejsów Use Case. Orkiestrują logikę, delegując do Output Portów.
+Nazewnictwo wg Davi Vieiry: Input Port = klasa implementująca Use Case.
 
 ```kotlin
-// application/usecase/ConnectDeviceService.kt
-class ConnectDeviceService(
+// application/port/input/ConnectDeviceInputPort.kt
+class ConnectDeviceInputPort(
     private val monitorPort: HeartRateMonitorPort
 ) : ConnectDeviceUseCase {
-    override fun connect(deviceId: String) = monitorPort.connect(deviceId)
+    override suspend fun connect(deviceId: String) = monitorPort.connect(deviceId)
     override fun disconnect(deviceId: String) = monitorPort.disconnect(deviceId)
 }
 
-// application/usecase/GetHeartRateStreamService.kt
-class GetHeartRateStreamService(
+// application/port/input/GetHeartRateStreamInputPort.kt
+class GetHeartRateStreamInputPort(
     private val monitorPort: HeartRateMonitorPort
 ) : GetHeartRateStreamUseCase {
     override fun invoke(deviceId: String): Flow<HrData> =
         monitorPort.getHeartRateStream(deviceId)
+}
+
+// application/port/input/ScanForDevicesInputPort.kt
+class ScanForDevicesInputPort(
+    private val monitorPort: HeartRateMonitorPort
+) : ScanForDevicesUseCase {
+    override fun invoke(): Flow<FoundDevice> =
+        monitorPort.scanForDevices()
 }
 ```
 
@@ -157,10 +174,11 @@ class HrViewModel(
 3.  ✅ Ręczne DI w `MainActivity.onCreate` — ViewModel widzi tylko interfejsy (Use Cases):
     ```kotlin
     // Framework/app — jedyne miejsce gdzie warstwy są sklejone
-    val polarAdapter = PolarBleAdapter(applicationContext)      // Framework → HeartRateMonitorPort
-    val connectService = ConnectDeviceService(polarAdapter)     // Application → ConnectDeviceUseCase
-    val streamService = GetHeartRateStreamService(polarAdapter) // Application → GetHeartRateStreamUseCase
-    val viewModel = HrViewModel(connectService, streamService)
+    val polarAdapter = PolarBleAdapter(applicationContext)            // Framework → HeartRateMonitorPort
+    val connectInputPort = ConnectDeviceInputPort(polarAdapter)      // Input Port → ConnectDeviceUseCase
+    val streamInputPort = GetHeartRateStreamInputPort(polarAdapter)  // Input Port → GetHeartRateStreamUseCase
+    val scanInputPort = ScanForDevicesInputPort(polarAdapter)        // Input Port → ScanForDevicesUseCase
+    val viewModel = HrViewModel(connectInputPort, streamInputPort, scanInputPort)
     ```
 4.  ✅ `HrScreen` wyświetla BPM (96sp), RR-interwały i przycisk Connect/Disconnect.
 
@@ -202,11 +220,11 @@ Architektura heksagonalna ułatwia testowanie kluczowej logiki bez Androida.
 app/src/
 ├── test/kotlin/com/example/androidapp/          # Unit testy (JVM, bez Androida)
 │   ├── ExampleUnitTest.kt                        # ✅ Istniejący przykład (JUnit 4)
-│   ├── application/usecase/
-│   │   ├── ConnectDeviceServiceTest.kt           # ❌ Do napisania
-│   │   └── GetHeartRateStreamServiceTest.kt      # ❌ Do napisania
+│   ├── application/port/input/
+│   │   ├── ConnectDeviceInputPortTest.kt         # ✅ Gotowy
+│   │   └── GetHeartRateStreamInputPortTest.kt    # ✅ Gotowy
 │   └── framework/adapter/input/ui/
-│       └── HrViewModelTest.kt                    # ❌ Do napisania
+│       └── HrViewModelTest.kt                    # ✅ Gotowy
 │
 └── androidTest/kotlin/com/example/androidapp/    # Testy instrumentalne (na urządzeniu)
     ├── ExampleInstrumentedTest.kt                # ✅ Istniejący przykład
@@ -217,10 +235,10 @@ app/src/
 ### 4.2 Co testować
 
 1.  **Unit Tests (`test/`)** — uruchamiane na JVM, bez emulatora/telefonu:
-    - `ConnectDeviceServiceTest` — mockuj `HeartRateMonitorPort`, weryfikuj że `connect()`/`disconnect()` delegują do portu.
-    - `GetHeartRateStreamServiceTest` — mockuj `HeartRateMonitorPort`, weryfikuj że `invoke()` zwraca `Flow<HrData>` z portu.
+    - `ConnectDeviceInputPortTest` — mockuj `HeartRateMonitorPort`, weryfikuj że `connect()`/`disconnect()` delegują do portu.
+    - `GetHeartRateStreamInputPortTest` — mockuj `HeartRateMonitorPort`, weryfikuj że `invoke()` zwraca `Flow<HrData>` z portu.
     - `HrViewModelTest` — mockuj oba use case'y, weryfikuj StateFlow (`hrData`, `error`, `isConnected`).
-    - Status: ❌ Nieimplementowane
+    - Status: ✅ Wszystkie zaimplementowane
 2.  **Integration Tests (`androidTest/`)** — uruchamiane na urządzeniu/emulatorze:
     - `HrScreenTest` — użyj `FakeHeartRateMonitorPort` (bez BLE) + Compose test rules.
     - Status: ❌ Nieimplementowane

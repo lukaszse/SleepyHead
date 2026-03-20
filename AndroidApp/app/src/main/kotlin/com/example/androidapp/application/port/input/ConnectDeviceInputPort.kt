@@ -1,15 +1,18 @@
-package com.example.androidapp.application.usecase
+package com.example.androidapp.application.port.input
 
-import com.example.androidapp.application.port.input.ConnectDeviceUseCase
 import com.example.androidapp.application.port.output.HeartRateMonitorPort
+import com.example.androidapp.application.usecase.ConnectDeviceUseCase
 
 /**
- * Application service that implements [ConnectDeviceUseCase] by delegating
+ * Input port that implements [ConnectDeviceUseCase] by delegating
  * to the [HeartRateMonitorPort] output port.
+ *
+ * In hexagonal architecture (Davi Vieira style) the input port is the concrete
+ * class that orchestrates the use case logic.
  *
  * @param monitorPort Output port used to communicate with the heart-rate hardware.
  */
-class ConnectDeviceService(
+class ConnectDeviceInputPort(
     private val monitorPort: HeartRateMonitorPort
 ) : ConnectDeviceUseCase {
 

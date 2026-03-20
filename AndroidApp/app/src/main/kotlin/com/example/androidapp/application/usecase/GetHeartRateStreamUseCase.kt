@@ -1,10 +1,12 @@
-package com.example.androidapp.application.port.input
+package com.example.androidapp.application.usecase
 
 import com.example.androidapp.domain.model.HrData
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Input port (use case) for obtaining a live stream of heart-rate data.
+ * Use case interface for obtaining a live stream of heart-rate data.
+ *
+ * Implementations (Input Ports) orchestrate domain logic and delegate to Output Ports.
  */
 interface GetHeartRateStreamUseCase {
 
