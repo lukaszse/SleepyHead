@@ -15,10 +15,11 @@ class ConnectDeviceService(
 
     /**
      * Connect to the heart-rate device.
+     * Suspends until the device is fully connected.
      *
      * @param deviceId Unique identifier of the target device.
      */
-    override fun connect(deviceId: String) {
+    override suspend fun connect(deviceId: String) {
         monitorPort.connect(deviceId)
     }
 

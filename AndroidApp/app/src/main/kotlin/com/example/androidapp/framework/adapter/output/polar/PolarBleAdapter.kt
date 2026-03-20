@@ -3,6 +3,7 @@ package com.example.androidapp.framework.adapter.output.polar
 import android.content.Context
 import android.util.Log
 import com.example.androidapp.application.port.output.HeartRateMonitorPort
+import com.example.androidapp.domain.model.FoundDevice
 import com.example.androidapp.domain.model.HrData
 import com.polar.sdk.api.PolarBleApi
 import com.polar.sdk.api.PolarBleApiCallback
@@ -10,6 +11,8 @@ import com.polar.sdk.api.PolarBleApiDefaultImpl
 import com.polar.sdk.api.model.PolarDeviceInfo
 import com.polar.sdk.api.model.PolarHrData
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.flow.map
 import java.util.UUID
@@ -29,6 +32,12 @@ class PolarBleAdapter(context: Context) : HeartRateMonitorPort {
         private const val TAG = "PolarBleAdapter"
     }
 
+    /**
+     * SharedFlow that emits the deviceId when a device becomes fully connected.
+     * Used by [connect] to suspend until the BLE connection is established.
+     */
+    private val deviceConnectedFlow = MutableSharedFlow<String>(extraBufferCapacity = 1)
+
     private val api: PolarBleApi = PolarBleApiDefaultImpl.defaultImplementation(
         context,
         setOf(
@@ -46,6 +55,7 @@ class PolarBleAdapter(context: Context) : HeartRateMonitorPort {
 
             override fun deviceConnected(polarDeviceInfo: PolarDeviceInfo) {
                 Log.d(TAG, "Device connected: ${polarDeviceInfo.deviceId}")
+                deviceConnectedFlow.tryEmit(polarDeviceInfo.deviceId)
             }
 
             override fun deviceConnecting(polarDeviceInfo: PolarDeviceInfo) {
@@ -67,12 +77,32 @@ class PolarBleAdapter(context: Context) : HeartRateMonitorPort {
     }
 
     /**
+     * Scan for nearby Polar devices using the Polar SDK search API.
+     * Converts the RxJava Flowable to a Kotlin Flow and maps to domain [FoundDevice].
+     *
+     * @return [Flow] emitting [FoundDevice] objects as they are discovered.
+     */
+    override fun scanForDevices(): Flow<FoundDevice> {
+        return api.searchForDevice()
+            .asFlow()
+            .map { deviceInfo ->
+                FoundDevice(
+                    deviceId = deviceInfo.deviceId,
+                    name = deviceInfo.name.ifBlank { null }
+                )
+            }
+    }
+
+    /**
      * Establish a BLE connection with the Polar device.
+     * Suspends until the [deviceConnected] callback fires for this [deviceId].
      *
      * @param deviceId Polar device identifier (e.g. "A1B2C3D4").
      */
-    override fun connect(deviceId: String) {
+    override suspend fun connect(deviceId: String) {
         api.connectToDevice(deviceId)
+        // Suspend until the callback confirms this device is connected
+        deviceConnectedFlow.first { it == deviceId }
     }
 
     /**
@@ -105,4 +135,3 @@ class PolarBleAdapter(context: Context) : HeartRateMonitorPort {
             }
     }
 }
-

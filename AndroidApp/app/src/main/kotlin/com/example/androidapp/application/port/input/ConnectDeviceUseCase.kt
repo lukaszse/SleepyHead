@@ -7,10 +7,11 @@ interface ConnectDeviceUseCase {
 
     /**
      * Connect to the heart-rate device.
+     * Suspends until the device is fully connected.
      *
      * @param deviceId Unique identifier of the target device.
      */
-    fun connect(deviceId: String)
+    suspend fun connect(deviceId: String)
 
     /**
      * Disconnect from the heart-rate device.

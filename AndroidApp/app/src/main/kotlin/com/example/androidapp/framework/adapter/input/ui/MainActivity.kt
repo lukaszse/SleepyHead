@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import com.example.androidapp.application.usecase.ConnectDeviceService
 import com.example.androidapp.application.usecase.GetHeartRateStreamService
+import com.example.androidapp.application.usecase.ScanForDevicesService
 import com.example.androidapp.framework.adapter.output.polar.PolarBleAdapter
 import com.example.androidapp.ui.theme.AndroidAppTheme
 
@@ -27,11 +28,6 @@ import com.example.androidapp.ui.theme.AndroidAppTheme
  * - hosting the Compose [HrScreen].
  */
 class MainActivity : ComponentActivity() {
-
-    companion object {
-        /** Default Polar H10 device ID — replace with your own. */
-        private const val DEVICE_ID = "C0680226"
-    }
 
     private val permissionsGranted = mutableStateOf(false)
 
@@ -50,16 +46,14 @@ class MainActivity : ComponentActivity() {
         val polarAdapter = PolarBleAdapter(applicationContext)
         val connectService = ConnectDeviceService(polarAdapter)
         val streamService = GetHeartRateStreamService(polarAdapter)
-        val viewModel = HrViewModel(connectService, streamService)
+        val scanService = ScanForDevicesService(polarAdapter)
+        val viewModel = HrViewModel(connectService, streamService, scanService)
 
         setContent {
             AndroidAppTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     if (permissionsGranted.value) {
-                        HrScreen(
-                            viewModel = viewModel,
-                            deviceId = DEVICE_ID,
-                        )
+                        HrScreen(viewModel = viewModel)
                     } else {
                         Text(
                             text = "Bluetooth permissions are required to use this app.",
@@ -95,4 +89,3 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-

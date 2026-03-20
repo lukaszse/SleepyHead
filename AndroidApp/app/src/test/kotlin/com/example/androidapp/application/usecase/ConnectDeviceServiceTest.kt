@@ -1,8 +1,10 @@
 package com.example.androidapp.application.usecase
 
 import com.example.androidapp.application.port.output.HeartRateMonitorPort
+import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
 class ConnectDeviceServiceTest {
@@ -12,9 +14,11 @@ class ConnectDeviceServiceTest {
 
     @Test
     fun `connect delegates to HeartRateMonitorPort`() {
-        service.connect("ABC123")
+        runTest {
+            service.connect("ABC123")
 
-        verify(exactly = 1) { port.connect("ABC123") }
+            coVerify(exactly = 1) { port.connect("ABC123") }
+        }
     }
 
     @Test
@@ -26,12 +30,14 @@ class ConnectDeviceServiceTest {
 
     @Test
     fun `connect passes exact deviceId to port`() {
-        val deviceId = "C0680226"
+        runTest {
+            val deviceId = "C0680226"
 
-        service.connect(deviceId)
+            service.connect(deviceId)
 
-        verify { port.connect(deviceId) }
-        verify(exactly = 0) { port.disconnect(any()) }
+            coVerify { port.connect(deviceId) }
+            verify(exactly = 0) { port.disconnect(any()) }
+        }
     }
 
     @Test
@@ -41,7 +47,6 @@ class ConnectDeviceServiceTest {
         service.disconnect(deviceId)
 
         verify { port.disconnect(deviceId) }
-        verify(exactly = 0) { port.connect(any()) }
+        coVerify(exactly = 0) { port.connect(any()) }
     }
 }
-

@@ -1,5 +1,6 @@
 package com.example.androidapp.application.port.output
 
+import com.example.androidapp.domain.model.FoundDevice
 import com.example.androidapp.domain.model.HrData
 import kotlinx.coroutines.flow.Flow
 
@@ -12,11 +13,20 @@ import kotlinx.coroutines.flow.Flow
 interface HeartRateMonitorPort {
 
     /**
+     * Scan for nearby heart-rate devices.
+     *
+     * @return [Flow] emitting [FoundDevice] objects as they are discovered.
+     *         The flow completes when scanning is stopped or times out.
+     */
+    fun scanForDevices(): Flow<FoundDevice>
+
+    /**
      * Establish a connection with the heart-rate sensor.
+     * Suspends until the device is fully connected.
      *
      * @param deviceId Unique identifier of the target device.
      */
-    fun connect(deviceId: String)
+    suspend fun connect(deviceId: String)
 
     /**
      * Disconnect from the heart-rate sensor.

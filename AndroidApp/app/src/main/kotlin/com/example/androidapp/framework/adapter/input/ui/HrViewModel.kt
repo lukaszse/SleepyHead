@@ -4,7 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.androidapp.application.port.input.ConnectDeviceUseCase
 import com.example.androidapp.application.port.input.GetHeartRateStreamUseCase
+import com.example.androidapp.application.port.input.ScanForDevicesUseCase
+import com.example.androidapp.domain.model.FoundDevice
 import com.example.androidapp.domain.model.HrData
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,38 +17,75 @@ import kotlinx.coroutines.launch
 /**
  * ViewModel that bridges the UI layer with the application use cases.
  *
- * It communicates exclusively with [ConnectDeviceUseCase] and
- * [GetHeartRateStreamUseCase] — never with framework adapters directly.
+ * It communicates exclusively with use case interfaces — never with framework adapters directly.
  *
  * @param connectUseCase Use case for managing the device connection lifecycle.
  * @param streamUseCase Use case for obtaining a live heart-rate data stream.
+ * @param scanUseCase Use case for scanning for nearby heart-rate devices.
  */
 class HrViewModel(
     private val connectUseCase: ConnectDeviceUseCase,
-    private val streamUseCase: GetHeartRateStreamUseCase
+    private val streamUseCase: GetHeartRateStreamUseCase,
+    private val scanUseCase: ScanForDevicesUseCase
 ) : ViewModel() {
 
     private val _hrData = MutableStateFlow<HrData?>(null)
-
-    /**
-     * Observable state holding the latest [HrData] received from the sensor,
-     * or `null` if no data has been received yet.
-     */
     val hrData: StateFlow<HrData?> = _hrData.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
-
-    /**
-     * Observable state holding the latest error message, or `null` if there is no error.
-     */
     val error: StateFlow<String?> = _error.asStateFlow()
 
     private val _isConnected = MutableStateFlow(false)
+    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+
+    private val _foundDevices = MutableStateFlow<List<FoundDevice>>(emptyList())
+    /**
+     * Observable state holding the list of discovered devices during scanning.
+     */
+    val foundDevices: StateFlow<List<FoundDevice>> = _foundDevices.asStateFlow()
+
+    private val _isScanning = MutableStateFlow(false)
+    /**
+     * Observable state indicating whether a BLE scan is currently in progress.
+     */
+    val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    private var scanJob: Job? = null
 
     /**
-     * Observable state indicating whether the device is currently streaming data.
+     * Start scanning for nearby heart-rate devices.
+     * Discovered devices are added to [foundDevices]. Duplicates are filtered by deviceId.
      */
-    val isConnected: StateFlow<Boolean> = _isConnected.asStateFlow()
+    fun startScan() {
+        if (_isScanning.value) return
+
+        _foundDevices.value = emptyList()
+        _error.value = null
+        _isScanning.value = true
+
+        scanJob = viewModelScope.launch {
+            scanUseCase()
+                .catch { throwable ->
+                    _error.value = throwable.message ?: "Scan failed"
+                    _isScanning.value = false
+                }
+                .collect { device ->
+                    val current = _foundDevices.value
+                    if (current.none { it.deviceId == device.deviceId }) {
+                        _foundDevices.value = current + device
+                    }
+                }
+        }
+    }
+
+    /**
+     * Stop the ongoing BLE scan.
+     */
+    fun stopScan() {
+        scanJob?.cancel()
+        scanJob = null
+        _isScanning.value = false
+    }
 
     /**
      * Connect to the heart-rate device and start collecting the HR data stream.
@@ -53,11 +93,19 @@ class HrViewModel(
      * @param deviceId Unique identifier of the target Polar device (e.g. "A1B2C3D4").
      */
     fun startMonitoring(deviceId: String) {
-        connectUseCase.connect(deviceId)
-        _isConnected.value = true
+        stopScan()
+        _isConnected.value = false
         _error.value = null
 
         viewModelScope.launch {
+            try {
+                connectUseCase.connect(deviceId)
+                _isConnected.value = true
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Connection failed"
+                return@launch
+            }
+
             streamUseCase(deviceId)
                 .catch { throwable ->
                     _error.value = throwable.message ?: "Unknown error"
@@ -79,4 +127,3 @@ class HrViewModel(
         _isConnected.value = false
     }
 }
-

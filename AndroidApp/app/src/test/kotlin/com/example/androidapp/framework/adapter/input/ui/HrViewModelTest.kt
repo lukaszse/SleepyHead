@@ -3,7 +3,11 @@ package com.example.androidapp.framework.adapter.input.ui
 import app.cash.turbine.test
 import com.example.androidapp.application.port.input.ConnectDeviceUseCase
 import com.example.androidapp.application.port.input.GetHeartRateStreamUseCase
+import com.example.androidapp.application.port.input.ScanForDevicesUseCase
+import com.example.androidapp.domain.model.FoundDevice
 import com.example.androidapp.domain.model.HrData
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -28,6 +32,7 @@ class HrViewModelTest {
 
     private val connectUseCase = mockk<ConnectDeviceUseCase>(relaxed = true)
     private val streamUseCase = mockk<GetHeartRateStreamUseCase>()
+    private val scanUseCase = mockk<ScanForDevicesUseCase>(relaxed = true)
 
     private val testDispatcher = UnconfinedTestDispatcher()
 
@@ -40,7 +45,9 @@ class HrViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
-        viewModel = HrViewModel(connectUseCase, streamUseCase)
+        // Default: connect succeeds immediately
+        coEvery { connectUseCase.connect(any()) } returns Unit
+        viewModel = HrViewModel(connectUseCase, streamUseCase, scanUseCase)
     }
 
     @After
@@ -74,12 +81,12 @@ class HrViewModelTest {
 
             viewModel.startMonitoring(DEVICE_ID)
 
-            verify(exactly = 1) { connectUseCase.connect(DEVICE_ID) }
+            coVerify(exactly = 1) { connectUseCase.connect(DEVICE_ID) }
         }
     }
 
     @Test
-    fun `startMonitoring sets isConnected to true`() {
+    fun `startMonitoring sets isConnected to true after successful connect`() {
         runTest {
             every { streamUseCase.invoke(DEVICE_ID) } returns flowOf<HrData>()
 
@@ -92,7 +99,7 @@ class HrViewModelTest {
     @Test
     fun `startMonitoring clears previous error`() {
         runTest {
-            // First cause an error
+            // First cause an error via stream failure
             every { streamUseCase.invoke(DEVICE_ID) } returns flow<HrData> {
                 throw RuntimeException("fail")
             }
@@ -136,7 +143,33 @@ class HrViewModelTest {
         }
     }
 
-    // --- Error handling ---
+    // --- Connection error handling ---
+
+    @Test
+    fun `startMonitoring sets error when connect fails`() {
+        runTest {
+            coEvery { connectUseCase.connect(DEVICE_ID) } throws RuntimeException("BLE unavailable")
+
+            viewModel.startMonitoring(DEVICE_ID)
+
+            assertEquals("BLE unavailable", viewModel.error.value)
+            assertFalse(viewModel.isConnected.value)
+        }
+    }
+
+    @Test
+    fun `startMonitoring does not start streaming when connect fails`() {
+        runTest {
+            coEvery { connectUseCase.connect(DEVICE_ID) } throws RuntimeException("BLE unavailable")
+
+            viewModel.startMonitoring(DEVICE_ID)
+
+            // streamUseCase should never be called if connect failed
+            io.mockk.verify(exactly = 0) { streamUseCase.invoke(any()) }
+        }
+    }
+
+    // --- Stream error handling ---
 
     @Test
     fun `startMonitoring sets error on stream failure`() {
