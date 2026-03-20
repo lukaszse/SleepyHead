@@ -201,18 +201,33 @@ services:
 ## 5. Roadmap
 
 ### Faza 0: Środowisko ⏱️ 1–2 dni
-- [ ] JDK 21 (ustawione w projekcie), Android Plugin w IntelliJ, SDK API 34
-- [ ] Nowy projekt Android (Empty Compose Activity, Kotlin DSL, Min SDK 26)
-- [ ] `./gradlew assembleDebug` → APK buduje się
-- [ ] `adb devices` → telefon widoczny
+- [x] JDK 21 (ustawione w projekcie), Android Plugin w IntelliJ, SDK API 34
+- [x] Nowy projekt Android (Empty Compose Activity, Kotlin DSL, Min SDK 26)
+- [x] `./gradlew assembleDebug` → APK buduje się
+- [ ] `adb devices` → telefon widoczny — **do weryfikacji**
 
-### Faza 1: POC — Android + Backend + Basic Auth ⏱️ 3–5 dni
-- [ ] Zależności: `polar-ble-sdk`, `retrofit`, `room`, `kotlinx-coroutines`
-- [ ] `PolarManager` — `searchForDevice()` + `startHrStreaming()`
-- [ ] `BleService` jako `ForegroundService` z WakeLock
-- [ ] `PacketRepository` — zapis do Room + batch upload
-- [ ] `AuthInterceptor` — Basic Auth header
-- [ ] Ktor backend (lokalnie): `POST /api/sessions/{id}/packets` logujący JSON
+### Faza 1a: MVP — Wyświetlanie HR na telefonie ✅ Ukończona
+> Architektura heksagonalna (Ports & Adapters). Szczegóły w `android-polar-hr-mvp-plan.md`.
+
+- [x] Zależności: `polar-ble-sdk`, `kotlinx-coroutines`, `kotlinx-coroutines-rx3` dodane w `build.gradle.kts`
+- [x] Warstwa domenowa: `HrData` (bpm, rrIntervals)
+- [x] Warstwa aplikacji: `ConnectDeviceUseCase`, `GetHeartRateStreamUseCase`, `HeartRateMonitorPort`
+- [x] Implementacje use case: `ConnectDeviceService`, `GetHeartRateStreamService`
+- [x] `PolarBleAdapter` (Driven Adapter) — `connect()` + `getHeartRateStream()` + callbacki BLE
+- [x] `HrViewModel` — StateFlow: `hrData`, `error`, `isConnected`
+- [x] `HrScreen` — wyświetla BPM (96sp), RR-interwały, przycisk Connect/Disconnect
+- [x] `MainActivity` — obsługa uprawnień BLE (Android 12+), ręczne DI
+- [ ] Test end-to-end na urządzeniu fizycznym z Polar H10 — **do weryfikacji**
+
+### Faza 1b: Backend Integration — Android → Ktor → (Kafka) ⏱️ 3–5 dni
+> Następny krok po weryfikacji Fazy 1a na fizycznym urządzeniu.
+
+- [ ] `BleService` jako `ForegroundService` z WakeLock (zbieranie HR w tle)
+- [ ] `PacketRepository` — zapis do Room DB jako lokalny bufor offline
+- [ ] `BatchUploader` — wysyłka co 30s lub gdy bufor ≥ 50 pakietów
+- [ ] `AuthInterceptor` — Basic Auth header (`BuildConfig.POC_USERNAME/PASSWORD`)
+- [ ] Retrofit `ApiService` — `POST /api/sessions/{id}/packets`
+- [ ] Ktor backend (lokalnie): przyjmuje batch HR i loguje do konsoli
 - [ ] Test end-to-end: HR w logach backendu ✅
 
 ### Faza 2: Kafka ⏱️ 3–5 dni

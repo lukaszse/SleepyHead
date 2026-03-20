@@ -69,7 +69,7 @@ data class HrData(
 ### ✅ Krok 2 — Warstwa Aplikacji (Application)
 
 **Cel:** Zdefiniować Przypadki Użycia (Interfejsy) oraz ich realizację przez Porty Wejściowe (Implementacja).
-**Status:** Ukończony (2026-03-10)
+**Status:** Ukończony (2026-03-10) — wszystkie 4 pliki obecne i poprawne
 
 #### 2a. Output Port (`port/output`)
 Interfejs dla "tylnych drzwi" aplikacji (wyjście do sprzętu).
@@ -125,11 +125,12 @@ class GetHeartRateStreamService(
 
 **Cel:** Implementacja portu przy użyciu konkretnej biblioteki (Polar SDK).
 **Lokalizacja:** `framework/adapter/output/polar`
-**Status:** Ukończony (2026-03-10)
+**Status:** Ukończony (2026-03-20)
 
-1.  Dodaj zależność `kotlinx-coroutines-rx3` w `build.gradle.kts`.
-2.  Utwórz `PolarBleAdapter` implementujący `HeartRateMonitorPort`.
-3.  W środku mapuj `PolarBleApi` (RxJava) na `Flow` i obiekty `PolarHrData` na domenowe `HrData`.
+1.  ✅ Zależność `kotlinx-coroutines-rx3` dodana w `build.gradle.kts`.
+2.  ✅ `PolarBleAdapter` implementuje `HeartRateMonitorPort`.
+3.  ✅ Mapowanie: `PolarBleApi` (RxJava Flowable) → Kotlin `Flow`; `PolarHrData` → domenowe `HrData`.
+4.  ✅ Callbacks logów BLE (connect / disconnect / battery / DIS info) obsłużone w `init`.
 
 ---
 
@@ -137,10 +138,11 @@ class GetHeartRateStreamService(
 
 **Cel:** Interfejs dla użytkownika. Traktujemy UI jako "wtyczkę" sterującą aplikacją.
 **Lokalizacja:** `framework/adapter/input/ui`
-**Status:** Ukończony (2026-03-10)
+**Status:** Ukończony (2026-03-20)
 
-#### 4a. ViewModel (`HrViewModel`)
+#### 4a. ViewModel (`HrViewModel`) — ✅ Gotowy
 ViewModel komunikuje się **WYŁĄCZNIE** z warstwą Application (Use Cases), nigdy bezpośrednio z Adapterem Polara.
+Eksponuje trzy `StateFlow`: `hrData`, `error`, `isConnected`.
 
 ```kotlin
 class HrViewModel(
@@ -149,18 +151,23 @@ class HrViewModel(
 ) : ViewModel() { ... }
 ```
 
-#### 4b. Ekran i Uprawnienia (`MainActivity`, `HrScreen`)
-1.  **Uprawnienia (Android 12+):** W `MainActivity` (entry point frameworku) obsłuż `BLUETOOTH_SCAN` i `BLUETOOTH_CONNECT` używając `ActivityResultContracts`.
-2.  Dopiero po uzyskaniu uprawnień wyświetl `HrScreen`.
-3.  Wstrzyknij zależności (DI łączy warstwy — ViewModel widzi tylko interfejs):
+#### 4b. Ekran i Uprawnienia (`MainActivity`, `HrScreen`) — ✅ Gotowe
+1.  ✅ **Uprawnienia (Android 12+):** `MainActivity` obsługuje `BLUETOOTH_SCAN` i `BLUETOOTH_CONNECT` przez `ActivityResultContracts`.
+2.  ✅ `HrScreen` renderuje się dopiero po udzieleniu uprawnień.
+3.  ✅ Ręczne DI w `MainActivity.onCreate` — ViewModel widzi tylko interfejsy (Use Cases):
     ```kotlin
     // Framework/app — jedyne miejsce gdzie warstwy są sklejone
-    val polarAdapter = PolarBleAdapter(context)          // Framework → implementuje HeartRateMonitorPort
-    val streamService = GetHeartRateStreamService(polarAdapter) // Application → implementuje GetHeartRateStreamUseCase
-    val connectService = ConnectDeviceService(polarAdapter)     // Application → implementuje ConnectDeviceUseCase
-    // ViewModel otrzymuje INTERFEJSY (UseCase), nie konkretne klasy
+    val polarAdapter = PolarBleAdapter(applicationContext)      // Framework → HeartRateMonitorPort
+    val connectService = ConnectDeviceService(polarAdapter)     // Application → ConnectDeviceUseCase
+    val streamService = GetHeartRateStreamService(polarAdapter) // Application → GetHeartRateStreamUseCase
     val viewModel = HrViewModel(connectService, streamService)
     ```
+4.  ✅ `HrScreen` wyświetla BPM (96sp), RR-interwały i przycisk Connect/Disconnect.
+
+#### ⚠️ Brakujące elementy
+- `framework/app/PolarApplication.kt` — folder istnieje, ale plik nie został utworzony.
+  Aktualnie DI odbywa się bezpośrednio w `MainActivity` — jest to akceptowalne dla MVP,
+  ale `PolarApplication` byłoby właściwym miejscem dla konfiguracji globalnej (np. Hilt/Koin).
 
 ---
 
@@ -168,13 +175,41 @@ class HrViewModel(
 
 Architektura heksagonalna ułatwia testowanie kluczowej logiki bez Androida.
 
-1.  **Unit Tests (`test/`):** Testuj `ConnectDeviceUseCase` i `GetHeartRateStreamUseCase` mockując `HeartRateMonitorPort`. To są najważniejsze testy logiki.
+1.  **Unit Tests (`test/`):** Testuj `ConnectDeviceService` i `GetHeartRateStreamService` mockując `HeartRateMonitorPort`. To są najważniejsze testy logiki.
+    - Status: ❌ Nieimplementowane
 2.  **Integration Tests (`androidTest/`):** Testuj `PolarBleAdapter` (tylko jeśli masz jak mockować BLE) lub `HrScreen` używając `FakeHeartRateAdapter` (który symuluje dane).
+    - Status: ❌ Nieimplementowane
 
 ## 5. Definicja ukończenia
 
 - [x] Struktura katalogów zgodna z sekcją 2.
 - [x] Warstwa `domain` nie ma `import android.*`.
 - [x] Warstwa `application` zależy tylko od `domain`.
-- [ ] Działa połączenie z paskiem i wyświetlanie tętna na telefonie.
+- [x] Kod się kompiluje (`./gradlew assembleDebug` przechodzi).
+- [ ] Działa połączenie z paskiem i wyświetlanie tętna na telefonie — **do weryfikacji na urządzeniu fizycznym**.
+- [ ] `PolarApplication.kt` — opcjonalne; DI może pozostać w `MainActivity` dla MVP.
+- [ ] Testy jednostkowe warstwy `application`.
+
+---
+
+> **Ostatnia aktualizacja:** 2026-03-20
+> **Następny krok:** Wdrożenie APK na telefon i test end-to-end z Polar H10.
+
+---
+
+## 6. Co dalej po MVP (poza zakresem tego dokumentu)
+
+Ten dokument kończy się w momencie, gdy HR pojawia się na ekranie telefonu.
+Kolejne kroki opisane są w `android-implementation-plan.md` jako **Faza 1b**:
+
+| Element | Opis |
+|---|---|
+| `BleService` | `ForegroundService` z WakeLock — zbieranie HR w tle |
+| `PacketRepository` | Zapis do Room DB jako lokalny bufor offline |
+| `BatchUploader` | Wysyłka do backendu co 30s lub przy ≥ 50 pakietach |
+| `AuthInterceptor` | Basic Auth header (`BuildConfig.POC_USERNAME/PASSWORD`) |
+| Retrofit `ApiService` | `POST /api/sessions/{id}/packets` |
+| Ktor backend (lokalnie) | Przyjmuje batch HR i loguje do konsoli |
+
+> Faza 1b zaczyna się **po** potwierdzeniu działającego połączenia BLE na urządzeniu fizycznym.
 
