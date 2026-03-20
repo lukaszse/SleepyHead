@@ -31,6 +31,20 @@ AGP: 8.3.x | Kotlin: 2.0.x | Min SDK: 26 | Target/Compile SDK: 34 | Gradle: 8.6+
 
 > ℹ️ **Uwaga SDK:** Pobierz tylko **Android 14.0 (API 34)** w zakładce SDK Platforms. Nie musisz pobierać API 26 — `minSdk: 26` w `build.gradle` to tylko deklaracja kompatybilności wstecznej w kodzie.
 
+### Środowisko testowe
+
+| Zależność | Scope | Status | Opis |
+|---|---|---|---|
+| `junit:junit:4.13.2` | `testImplementation` | ✅ Dodana | JUnit 4 — runner unit testów na JVM |
+| `androidx.test.ext:junit:1.2.1` | `androidTestImplementation` | ✅ Dodana | JUnit runner dla testów instrumentalnych |
+| `espresso-core:3.6.1` | `androidTestImplementation` | ✅ Dodana | Testy UI (View-based) — nieużywane w Compose |
+| `compose-ui-test-junit4` | `androidTestImplementation` | ✅ Dodana | Testy UI Compose (semantics, assertions) |
+| `io.mockk:mockk:1.13.13` | `testImplementation` | ❌ Brak | Mockowanie interfejsów (porty, use case'y) |
+| `kotlinx-coroutines-test:1.8.1` | `testImplementation` | ❌ Brak | `runTest`, `TestDispatcher` dla coroutines/Flow |
+| `app.cash.turbine:turbine:1.2.0` | `testImplementation` | ❌ Brak | Asercje na `Flow` (`.test { awaitItem() }`) |
+
+> Szczegółowy plan testów (co testować, jakie pliki) → `android-polar-hr-mvp-plan.md`, sekcja 4.
+
 ---
 
 ## 2. Architektura Aplikacji Android
@@ -329,6 +343,7 @@ Polar H10 --BLE--> PolarManager.startHrStreaming()
 ## Powiązane dokumenty
 
 - `ADR-001-Polar-H10-Integration.md` — decyzja o Android + Polar BLE SDK
+- `ADR-002-Testing-Stack.md` — decyzja o JUnit 4 + MockK + Turbine (i odrzucenie Spocka)
 - `ADR-002-Transport-Strategy.md` — do utworzenia: REST vs WebSocket vs MQTT
 - `ADR-003-Kafka-Architecture.md` — do utworzenia: topiki, consumer groups, multi-tenancy
 

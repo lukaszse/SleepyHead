@@ -175,9 +175,54 @@ class HrViewModel(
 
 Architektura heksagonalna ułatwia testowanie kluczowej logiki bez Androida.
 
-1.  **Unit Tests (`test/`):** Testuj `ConnectDeviceService` i `GetHeartRateStreamService` mockując `HeartRateMonitorPort`. To są najważniejsze testy logiki.
+> Uzasadnienie wyboru stacka testowego → `ADR-002-Testing-Stack.md`
+
+### 4.1 Środowisko testowe
+
+#### Obecny stack (w `build.gradle.kts`)
+
+| Zależność | Scope | Opis |
+|---|---|---|
+| `junit:junit:4.13.2` | `testImplementation` | JUnit 4 — runner testów jednostkowych |
+| `androidx.test.ext:junit:1.2.1` | `androidTestImplementation` | JUnit runner dla testów instrumentalnych |
+| `espresso-core:3.6.1` | `androidTestImplementation` | Testy UI (View-based) — nieużywane w Compose |
+| `compose-ui-test-junit4` | `androidTestImplementation` | Testy UI Compose |
+
+#### Brakujące zależności (do dodania)
+
+| Zależność | Scope | Do czego |
+|---|---|---|
+| `io.mockk:mockk:1.13.13` | `testImplementation` | Mockowanie `HeartRateMonitorPort` w unit testach |
+| `org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1` | `testImplementation` | Testowanie `Flow` i coroutines (`runTest`, `Turbine`) |
+| `app.cash.turbine:turbine:1.2.0` | `testImplementation` | Asercje na `Flow` (`.test { awaitItem() }`) |
+
+#### Lokalizacje testów
+
+```text
+app/src/
+├── test/kotlin/com/example/androidapp/          # Unit testy (JVM, bez Androida)
+│   ├── ExampleUnitTest.kt                        # ✅ Istniejący przykład (JUnit 4)
+│   ├── application/usecase/
+│   │   ├── ConnectDeviceServiceTest.kt           # ❌ Do napisania
+│   │   └── GetHeartRateStreamServiceTest.kt      # ❌ Do napisania
+│   └── framework/adapter/input/ui/
+│       └── HrViewModelTest.kt                    # ❌ Do napisania
+│
+└── androidTest/kotlin/com/example/androidapp/    # Testy instrumentalne (na urządzeniu)
+    ├── ExampleInstrumentedTest.kt                # ✅ Istniejący przykład
+    └── framework/adapter/input/ui/
+        └── HrScreenTest.kt                       # ❌ Do napisania (Compose testing)
+```
+
+### 4.2 Co testować
+
+1.  **Unit Tests (`test/`)** — uruchamiane na JVM, bez emulatora/telefonu:
+    - `ConnectDeviceServiceTest` — mockuj `HeartRateMonitorPort`, weryfikuj że `connect()`/`disconnect()` delegują do portu.
+    - `GetHeartRateStreamServiceTest` — mockuj `HeartRateMonitorPort`, weryfikuj że `invoke()` zwraca `Flow<HrData>` z portu.
+    - `HrViewModelTest` — mockuj oba use case'y, weryfikuj StateFlow (`hrData`, `error`, `isConnected`).
     - Status: ❌ Nieimplementowane
-2.  **Integration Tests (`androidTest/`):** Testuj `PolarBleAdapter` (tylko jeśli masz jak mockować BLE) lub `HrScreen` używając `FakeHeartRateAdapter` (który symuluje dane).
+2.  **Integration Tests (`androidTest/`)** — uruchamiane na urządzeniu/emulatorze:
+    - `HrScreenTest` — użyj `FakeHeartRateMonitorPort` (bez BLE) + Compose test rules.
     - Status: ❌ Nieimplementowane
 
 ## 5. Definicja ukończenia
