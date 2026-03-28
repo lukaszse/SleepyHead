@@ -66,26 +66,33 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Request Bluetooth runtime permissions required on Android 12+ (API 31+).
-     * On older versions the permissions are granted at install time.
+     * Request Bluetooth runtime permissions.
+     *
+     * - Android 12+ (API 31+): BLUETOOTH_SCAN + BLUETOOTH_CONNECT
+     * - Android 6–11 (API 23–30): ACCESS_FINE_LOCATION (required for BLE scanning)
+     * - Android < 6: permissions granted at install time.
      */
     private fun requestBlePermissions() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val needed = arrayOf(
+        val needed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Android 12+ — new BLE permissions, no location needed
+            arrayOf(
                 Manifest.permission.BLUETOOTH_SCAN,
                 Manifest.permission.BLUETOOTH_CONNECT
-            ).filter {
-                ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-            }.toTypedArray()
-
-            if (needed.isEmpty()) {
-                permissionsGranted.value = true
-            } else {
-                permissionLauncher.launch(needed)
-            }
+            )
         } else {
-            // Pre-Android 12 — permissions declared in manifest are enough.
+            // Android 6–11 — BLE scan requires location permission
+            arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+        }.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }.toTypedArray()
+
+        if (needed.isEmpty()) {
             permissionsGranted.value = true
+        } else {
+            permissionLauncher.launch(needed)
         }
     }
 }
