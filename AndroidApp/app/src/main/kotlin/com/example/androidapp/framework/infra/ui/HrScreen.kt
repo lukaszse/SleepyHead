@@ -1,4 +1,4 @@
-package com.example.androidapp.framework.adapter.input.ui
+package com.example.androidapp.framework.infra.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,10 +26,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.androidapp.framework.adapter.input.HrViewModel
 
 /**
  * Main Compose screen that shows either a device scan list or the heart-rate monitor,
  * depending on connection state.
+ *
+ * In Davi Vieira's hexagonal architecture this is **framework infrastructure** —
+ * a UI component that consumes state from the driving adapter ([HrViewModel])
+ * but does not call use cases directly.
  *
  * @param viewModel [HrViewModel] instance providing the UI state.
  */
@@ -202,3 +207,4 @@ private fun MonitorScreen(viewModel: HrViewModel, deviceId: String) {
         }
     }
 }
+

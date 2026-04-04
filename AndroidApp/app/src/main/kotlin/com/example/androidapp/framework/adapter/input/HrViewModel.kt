@@ -1,4 +1,4 @@
-package com.example.androidapp.framework.adapter.input.ui
+package com.example.androidapp.framework.adapter.input
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,7 +15,11 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 
 /**
- * ViewModel that bridges the UI layer with the application use cases.
+ * Driving (input) adapter that bridges the UI infrastructure with the application use cases.
+ *
+ * In Davi Vieira's hexagonal architecture this is a **framework input adapter** —
+ * it translates UI intents into use-case calls and exposes observable state
+ * consumed by the infrastructure UI layer (HrScreen).
  *
  * It communicates exclusively with use case interfaces — never with framework adapters directly.
  *
@@ -127,3 +131,4 @@ class HrViewModel(
         _isConnected.value = false
     }
 }
+

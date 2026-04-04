@@ -1,4 +1,4 @@
-package com.example.androidapp.framework.adapter.input.ui
+package com.example.androidapp.framework.infra
 
 import android.Manifest
 import android.content.pm.PackageManager
@@ -15,17 +15,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import com.example.androidapp.application.port.input.ConnectDeviceInputPort
-import com.example.androidapp.application.port.input.GetHeartRateStreamInputPort
-import com.example.androidapp.application.port.input.ScanForDevicesInputPort
-import com.example.androidapp.framework.adapter.output.polar.PolarBleAdapter
-import com.example.androidapp.ui.theme.AndroidAppTheme
+import com.example.androidapp.framework.bootstrap.AppDependencies
+import com.example.androidapp.framework.infra.ui.HrScreen
+import com.example.androidapp.framework.infra.ui.theme.AndroidAppTheme
 
 /**
  * Application entry point responsible for:
  * - requesting BLE runtime permissions (Android 12+),
- * - wiring dependency injection (manual),
+ * - obtaining a wired [HrViewModel][com.example.androidapp.framework.adapter.input.HrViewModel]
+ *   from the [AppDependencies] bootstrap,
  * - hosting the Compose [HrScreen].
+ *
+ * In Davi Vieira's hexagonal architecture this class is **framework infrastructure** —
+ * an Android-specific shell that delegates DI wiring to the bootstrap layer.
  */
 class MainActivity : ComponentActivity() {
 
@@ -42,12 +44,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         requestBlePermissions()
 
-        // --- Manual Dependency Injection (framework layer) ---
-        val polarAdapter = PolarBleAdapter(applicationContext)
-        val connectInputPort = ConnectDeviceInputPort(polarAdapter)
-        val streamInputPort = GetHeartRateStreamInputPort(polarAdapter)
-        val scanInputPort = ScanForDevicesInputPort(polarAdapter)
-        val viewModel = HrViewModel(connectInputPort, streamInputPort, scanInputPort)
+        // Obtain a fully wired ViewModel from the bootstrap composition root
+        val dependencies = AppDependencies(applicationContext)
+        val viewModel = dependencies.viewModel
 
         setContent {
             AndroidAppTheme {
@@ -96,3 +95,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
