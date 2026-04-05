@@ -47,7 +47,7 @@ class PolarBleAdapter(context: Context) : HeartRateMonitorPort {
     )
 
     init {
-        api.setApiCallback(object : PolarBleApiCallback() {
+        val polarBleApiCallback = object : PolarBleApiCallback() {
 
             override fun blePowerStateChanged(powered: Boolean) {
                 Log.d(TAG, "Bluetooth power state changed: powered=$powered")
@@ -73,7 +73,8 @@ class PolarBleAdapter(context: Context) : HeartRateMonitorPort {
             override fun batteryLevelReceived(identifier: String, level: Int) {
                 Log.d(TAG, "Battery level — identifier=$identifier level=$level%")
             }
-        })
+        }
+        api.setApiCallback(polarBleApiCallback)
     }
 
     /**

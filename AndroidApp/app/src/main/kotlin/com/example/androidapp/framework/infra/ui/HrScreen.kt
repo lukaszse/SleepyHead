@@ -184,6 +184,13 @@ private fun MonitorScreen(viewModel: HrViewModel, deviceId: String) {
             )
         }
 
+        if (hrData != null) {
+            Text(
+                text = "RR: ${hrData!!.rrIntervals.average()} ms",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
         error?.let { errorMessage ->
             Spacer(modifier = Modifier.height(8.dp))
             Text(
