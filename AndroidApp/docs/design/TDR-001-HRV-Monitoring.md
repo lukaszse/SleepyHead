@@ -133,44 +133,26 @@ t = 5:01  → buffer: [0:01–5:01]          → second snapshot, first minute d
         ┌─────────────────────────────────────────────────────┐
         │                     SESSION                         │
         │                                                     │
-  User  │  startSession()                         stopSession() │  User
+  BLE   │  deviceConnected()                  deviceDisconnected() │  BLE
   ──────►──────────────────────────────────────────────────────►──────
-        │                                                     │
+        │                           ↑ reconnect retried         │
         │   Data gap ≥ 2 h  →  auto-end                       │
         │   ─────────────────────────────►  stopSession()     │
         └─────────────────────────────────────────────────────┘
 ```
 
 **Rules:**
-- Session starts **manually** — user taps "Start".
-- Session ends **manually** — user taps "Stop"; or
+- Session starts **automatically** when BLE device connects — no extra "Start" button needed.
+  The existing `connect()` flow in `HrViewModel` triggers `startSession()` internally.
+- Session ends when the user taps **"Disconnect"** — `disconnect()` triggers `stopSession()`.
 - Session **auto-ends** if no RR data is received for ≥ **2 hours** (7,200,000 ms).
-- After auto-end, a new session must be started manually.
-- Session ID is a UUID generated at start.
+- BLE drops are treated as transient gaps — `reconnect()` is retried every 5 s.
+  The session is NOT ended on a transient disconnect.
+- After auto-end, a new session starts automatically on the next successful reconnect.
+- Session ID is a UUID generated at the moment of each new session start.
 
-### 3.3 BLE Reconnection Strategy
-
-BLE disconnections are treated as **transient gaps** — they do NOT end the session.
-
-```
-[Connected] → [Disconnected] → [Retry every 5 s] → [Reconnected] → session continues
-                                                                     (gap excluded)
-```
-
-- Gap intervals are **not added** to the 5-minute sliding window.
-- The session average is computed only from actual snapshot data.
-- If reconnection fails for ≥ 2 hours, the auto-end rule applies.
-
-### 3.4 Session Average
-
-The session average is a **simple mean of all per-minute RMSSD snapshots** collected
-during the session:
-
-```
-sessionAvg = Σ(snapshot.rmssd) / snapshotCount
-```
-
-This is updated live — every time a new snapshot is added.
+> **UX rationale:** The user already interacts with Connect/Disconnect.
+> Adding a separate "Start/Stop HRV session" button would be redundant and confusing.
 
 ---
 
@@ -256,10 +238,17 @@ Following the Ports & Adapters architecture established in ADR-001.
 ┌────────────────────────────────────────────────────────────────────▼─┐
 │  FRAMEWORK (Driven Adapters)                                         │
 │                                                                      │
-│  HrvSessionRoomAdapter  ─── implements ──►  HrvSessionRepositoryPort │
-│  (Room / SQLite)                                                     │
+│  HrvSessionFileAdapter  ── implements ──►  HrvSessionRepositoryPort  │
+│  (JSONL files, one per session)                                      │
 └──────────────────────────────────────────────────────────────────────┘
 ```
+
+> **Dependency direction:** The adapter depends on the domain — never the reverse.
+> `HrvSessionFileAdapter` knows `HrvSession` (domain object). `HrvSession` knows
+> nothing about files, Android, or any framework class.
+>
+> **Swap note:** Replacing `HrvSessionFileAdapter` with a Room- or cloud-backed
+> adapter requires **zero changes** in the domain or application layers.
 
 ### 5.1 New Files Overview
 
@@ -271,76 +260,124 @@ Following the Ports & Adapters architecture established in ADR-001.
 | App / Input Port | `StartHrvSessionInputPort.kt` | Interface |
 | App / Input Port | `StopHrvSessionInputPort.kt` | Interface |
 | App / Input Port | `GetSessionHistoryInputPort.kt` | Interface |
-| App / Output Port | `HrvSessionRepositoryPort.kt` | Interface |
+| App / **Output Port** | `HrvSessionRepositoryPort.kt` | **Persistence contract — domain objects only** |
 | App / Use Case | `StartHrvSessionUseCase.kt` | Impl of input port |
 | App / Use Case | `StopHrvSessionUseCase.kt` | Impl of input port |
 | App / Use Case | `RecordHrvSnapshotUseCase.kt` | Orchestrates per-minute save |
 | App / Use Case | `GetSessionHistoryUseCase.kt` | Impl of input port |
 | Framework Input | `HrvViewModel.kt` | Drives all HRV use cases, session state, live chart data |
-| Framework Output | `HrvSessionRoomAdapter.kt` | Room implementation of repository port |
-| Framework DB | `HrvSessionEntity.kt` | Room entity |
-| Framework DB | `HrvSnapshotEntity.kt` | Room entity |
-| Framework DB | `HrvSessionDao.kt` | Room DAO |
+| **Framework Output** | **`HrvSessionFileAdapter.kt`** | **JSONL file implementation of the output port** |
 | Framework UI | `HrvMonitorScreen.kt` | Live RMSSD + chart + session avg |
 | Framework UI | `HrvHistoryScreen.kt` | Past sessions list + detail |
 
 ---
 
-## 6. HrvViewModel — Key State & Logic
+## 6. HrvViewModel — Integration with Existing HrViewModel
+
+Rather than a standalone `HrvViewModel`, HRV state is **added to the existing `HrViewModel`**.
+This avoids duplicating BLE state, coroutine scopes, and device lifecycle management.
 
 ```kotlin
-class HrvViewModel(...) : ViewModel() {
+class HrViewModel(
+    private val connectUseCase: ConnectDeviceUseCase,
+    private val streamUseCase: GetHeartRateStreamUseCase,
+    private val scanUseCase: ScanForDevicesUseCase,
+    private val startSessionUseCase: StartHrvSessionUseCase,   // NEW
+    private val recordSnapshotUseCase: RecordHrvSnapshotUseCase, // NEW
+    private val stopSessionUseCase: StopHrvSessionUseCase        // NEW
+) : ViewModel() {
 
-    // --- Live state ---
-    val currentRmssd: StateFlow<Double?>          // latest 5-min RMSSD
-    val sessionAverage: StateFlow<Double?>        // running average of all snapshots
+    // --- Existing state (unchanged) ---
+    val hrData: StateFlow<HrData?>
+    val isConnected: StateFlow<Boolean>
+    val error: StateFlow<String?>
+    val foundDevices: StateFlow<List<FoundDevice>>
+    val isScanning: StateFlow<Boolean>
+
+    // --- NEW: HRV state ---
+    val currentRmssd: StateFlow<Double?>          // latest RMSSD from 5-min window
+    val sessionAverage: StateFlow<Double?>        // running mean of all snapshots
     val sessionSnapshots: StateFlow<List<HrvSnapshot>>  // data for chart
-    val sessionActive: StateFlow<Boolean>
-    val latestRrIntervals: StateFlow<List<Int>>   // raw RR from last HrData
-
-    // --- Session management ---
-    fun startSession()
-    fun stopSession()
 
     // --- Internal ---
-    // 1. Collect HrData from GetHeartRateStreamUseCase
-    // 2. Append RR intervals into a timestamped deque (5-min sliding window)
-    // 3. Every 60 s: compute RMSSD → save snapshot via RecordHrvSnapshotUseCase
-    // 4. Watch lastReceivedTimestamp: if gap > 2h → auto-end
-    // 5. On BLE disconnect: trigger reconnect loop (retry every 5 s)
+    // On connect:  startSession() → rrBuffer cleared → snapshotTimer started
+    // On HrData:   rrBuffer.addAll(data.rrIntervals) → trim to 5 min window
+    //              every 60 s: compute RMSSD → recordSnapshot() → update StateFlows
+    // On gap > 2h: stopSession() → auto-end
+    // On disconnect (transient): retry loop, session continues
+    // On disconnect (user): stopSession() → finaliseSession()
 }
 ```
 
-### 6.1 Auto-end Implementation
+### 6.1 RR Buffer — Sliding Window
 
 ```kotlin
-// Pseudocode — runs in viewModelScope while session is active
-private fun watchForAutoEnd() = viewModelScope.launch {
-    while (sessionActive.value) {
-        delay(60_000L) // check every minute
-        val gap = System.currentTimeMillis() - lastReceivedTimestamp
-        if (gap >= 2 * 60 * 60 * 1000L) {  // 2 hours
-            stopSession()
+// Timestamped RR buffer — each entry is (receivedAt: Long, rrMs: Int)
+private val rrBuffer = ArrayDeque<Pair<Long, Int>>()
+
+private fun addRrIntervals(hrData: HrData) {
+    val now = System.currentTimeMillis()
+    hrData.rrIntervals.forEach { rrBuffer.addLast(now to it) }
+    // Evict entries older than 5 minutes
+    val cutoff = now - HrvCalculator.WINDOW_MS
+    while (rrBuffer.isNotEmpty() && rrBuffer.first().first < cutoff) {
+        rrBuffer.removeFirst()
+    }
+}
+```
+
+### 6.2 Per-Minute Snapshot Timer
+
+```kotlin
+private fun startSnapshotTimer() = viewModelScope.launch {
+    while (isConnected.value) {
+        delay(60_000L)
+        val rmssd = HrvCalculator.rmssd(rrBuffer.map { it.second })
+        if (rmssd != null) {
+            val snapshot = HrvSnapshot(
+                timestamp = System.currentTimeMillis(),
+                rmssdMs = rmssd,
+                rrIntervalCount = rrBuffer.size,
+                windowDurationMs = HrvCalculator.WINDOW_MS
+            )
+            recordSnapshotUseCase(currentSessionId, snapshot)
+            _sessionSnapshots.value = _sessionSnapshots.value + snapshot
+            _sessionAverage.value = _sessionSnapshots.value.map { it.rmssdMs }.average()
+            _currentRmssd.value = rmssd
         }
     }
 }
 ```
 
-### 6.2 BLE Reconnect Loop
+### 6.3 Auto-end Watcher
 
 ```kotlin
-// Pseudocode
+private fun watchForAutoEnd() = viewModelScope.launch {
+    while (isConnected.value) {
+        delay(60_000L)
+        val gap = System.currentTimeMillis() - lastReceivedTimestamp
+        if (gap >= 2 * 60 * 60 * 1000L) {
+            stopMonitoring(currentDeviceId)   // triggers stopSession() internally
+        }
+    }
+}
+```
+
+### 6.4 BLE Reconnect Loop
+
+```kotlin
 private fun startStreamWithRetry(deviceId: String) = viewModelScope.launch {
-    while (sessionActive.value) {
+    while (_isConnected.value) {
         try {
-            heartRateStream(deviceId).collect { hrData ->
+            streamUseCase(deviceId).collect { hrData ->
                 lastReceivedTimestamp = System.currentTimeMillis()
-                processHrData(hrData)
+                _hrData.value = hrData
+                addRrIntervals(hrData)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Stream lost: ${e.message}. Retrying in 5 s...")
             delay(5_000L)
-            reconnect(deviceId)
+            try { connectUseCase.connect(deviceId) } catch (_: Exception) {}
         }
     }
 }
@@ -348,69 +385,147 @@ private fun startStreamWithRetry(deviceId: String) = viewModelScope.launch {
 
 ---
 
-## 7. Persistence — Room Database
+## 7. Persistence — JSONL File Storage
 
-### 7.1 Entities
+### 7.1 Decision: Files over Room
 
-```kotlin
-@Entity(tableName = "hrv_sessions")
-data class HrvSessionEntity(
-    @PrimaryKey val id: String,           // UUID
-    val startTime: Long,
-    val endTime: Long?
-)
+Room (SQLite) was considered and rejected for this feature.
+See rationale below.
 
-@Entity(
-    tableName = "hrv_snapshots",
-    foreignKeys = [ForeignKey(
-        entity = HrvSessionEntity::class,
-        parentColumns = ["id"],
-        childColumns = ["sessionId"],
-        onDelete = ForeignKey.CASCADE
-    )],
-    indices = [Index("sessionId")]
-)
-data class HrvSnapshotEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    val sessionId: String,
-    val timestamp: Long,
-    val rmssdMs: Double,
-    val rrIntervalCount: Int,
-    val windowDurationMs: Long
-)
+| Criterion | JSONL Files ✅ | Room / SQLite ❌ |
+|---|---|---|
+| Implementation cost | `HrvSessionFileAdapter` (~60 lines) | Adapter + Entity ×2 + DAO + DB migration (5+ files) |
+| Dependencies | None (stdlib only) | `room-runtime`, `room-compiler` (kapt/ksp) |
+| Schema migrations | Not needed | Required on every model change |
+| Complex queries | Not needed at this scale | Would justify Room |
+| Export / share | Trivial — file is already JSON | Requires conversion |
+| Raw data readability | ✅ Open in any text editor | ❌ Binary SQLite |
+| Swap to Room later | ✅ Zero domain/app changes (port contract) | — |
+
+> YAGNI: Room will be reconsidered only if cross-session SQL queries become necessary
+> (e.g. "all sessions where avg RMSSD > 40 in the last 30 days").
+
+### 7.2 File Format — JSONL (JSON Lines)
+
+One file per session. Each line is one complete `HrvSnapshot` JSON object.
+The first line is the session header.
+
+**File naming:**
+```
+hrv_2026-04-05T23-14-00.jsonl
 ```
 
-### 7.2 Storage Estimates
+**File content:**
+```jsonl
+{"type":"header","id":"uuid-...","startTime":1712358840000,"endTime":null}
+{"type":"snapshot","timestamp":1712359140000,"rmssdMs":42.3,"rrIntervalCount":312,"windowDurationMs":300000}
+{"type":"snapshot","timestamp":1712359200000,"rmssdMs":44.1,"rrIntervalCount":308,"windowDurationMs":300000}
+{"type":"snapshot","timestamp":1712359260000,"rmssdMs":38.7,"rrIntervalCount":301,"windowDurationMs":300000}
+```
+
+**Why JSONL (not a single JSON array)?**
+- Each snapshot is appended as a single `FileWriter(append = true)` call.
+- If the app crashes mid-session, all previously written lines are intact.
+- No need to read and rewrite the entire file on each append.
+
+### 7.3 Adapter Skeleton
+
+```kotlin
+class HrvSessionFileAdapter(
+    private val context: Context              // infrastructure dependency
+) : HrvSessionRepositoryPort {               // depends on port (application layer)
+
+    private val dir: File
+        get() = context.filesDir.resolve("hrv_sessions").also { it.mkdirs() }
+
+    /** Appends one snapshot line to the session file. */
+    override suspend fun appendSnapshot(sessionId: String, snapshot: HrvSnapshot) {
+        withContext(Dispatchers.IO) {
+            fileFor(sessionId).appendText(
+                Json.encodeToString(snapshot.toJsonLine()) + "\n"
+            )
+        }
+    }
+
+    /** Reads and deserialises all sessions (one file each). */
+    override suspend fun loadAll(): List<HrvSession> = withContext(Dispatchers.IO) {
+        dir.listFiles { f -> f.extension == "jsonl" }
+            ?.map { parseFile(it) }
+            ?.sortedByDescending { it.startTime }
+            ?: emptyList()
+    }
+
+    /** Writes or updates the header line (e.g. to set endTime). */
+    override suspend fun finaliseSession(session: HrvSession) { /* rewrite header */ }
+
+    private fun fileFor(sessionId: String) =
+        dir.listFiles { f -> f.name.contains(sessionId) }?.firstOrNull()
+            ?: dir.resolve("hrv_${sessionId}.jsonl")
+}
+```
+
+### 7.4 Storage Estimates
 
 **Assumptions:**
 - Average sleep session: **8 hours** → 480 snapshots (1/minute).
-- SQLite row overhead: ~80 bytes (B-tree, header, rowid alignment).
-- `HrvSnapshotEntity` pure data: `8+8+8+8+4+8 = 44 bytes`.
-- Realistic per snapshot row: **~124 bytes**.
-- `HrvSessionEntity` row: **~80 bytes** (negligible).
+- JSONL line per snapshot: ~90 bytes (JSON text).
+- Header line: ~80 bytes.
 
 | Period | Sessions | Snapshots | Storage |
 |---|---|---|---|
-| 1 night (8 h) | 1 | 480 | **~58 KB** |
-| 1 week | 7 | 3,360 | **~406 KB** |
-| 1 month (30 d) | 30 | 14,400 | **~1.7 MB** |
-| 1 year | 365 | 175,200 | **~20.7 MB** |
+| 1 night (8 h) | 1 | 480 | **~43 KB** |
+| 1 week | 7 | 3,360 | **~301 KB** |
+| 1 month (30 d) | 30 | 14,400 | **~1.3 MB** |
+| 1 year | 365 | 175,200 | **~15.5 MB** |
 
 > **Context:** A single JPEG photo from a modern Android phone is 3–5 MB.
-> One year of HRV data equals the storage of roughly **4–5 photos**.
+> One year of HRV data equals the storage of roughly **3–4 photos**.
 > No cleanup strategy is required at this scale.
 
 ---
 
-## 8. UI — Live Chart & Display
+## 8. UI — Layout & Navigation
 
-### 8.1 What is displayed on HrvMonitorScreen
+### 8.1 Screen Structure
+
+The app has **one entry point** — `HrScreen`. No separate HRV screen navigation is needed.
+
+```
+HrScreen
+   │
+   ├── NOT connected  →  ScanScreen (existing, unchanged)
+   │
+   └── connected      →  HorizontalPager (2 pages, swipe left/right)
+                              │
+                              ├── Page 0: LiveHrPage    (BPM + RR intervals)
+                              └── Page 1: LiveHrvPage   (RMSSD chart + session avg)
+```
+
+Swipe gestures are handled by `HorizontalPager` from
+`androidx.compose.foundation.pager` — no additional navigation library needed.
+
+### 8.2 Page 0 — LiveHrPage (existing MonitorScreen content)
 
 ```
 ┌────────────────────────────────────────────────┐
-│  HRV Monitor                 Session: 2h 14m   │
+│                      72                        │
+│                     BPM                        │
 │                                                │
-│  Live RMSSD (5-min window)                     │
+│  RR: 832, 814, 841 ms                          │
+│  Avg RR: 829 ms                                │
+│                                                │
+│  ○ ●   ← page indicator (swipe for HRV →)     │
+│                                                │
+│  [         Disconnect         ]                │
+└────────────────────────────────────────────────┘
+```
+
+### 8.3 Page 1 — LiveHrvPage (new)
+
+```
+┌────────────────────────────────────────────────┐
+│  HRV (RMSSD)               Session: 2h 14m     │
+│                                                │
 │  ┌────────────────────────────────────────┐    │
 │  │  52 │        ╭──╮                      │    │
 │  │  46 │  ╭─╮  ╭╯  ╰──╮   ← snapshots    │    │
@@ -420,21 +535,40 @@ data class HrvSnapshotEntity(
 │  └────────────────────────────────────────┘    │
 │                                                │
 │  Now: 44.2 ms    Session avg: 41.8 ms          │
-│  RR:  832, 814, 841 ms                         │
 │                                                │
-│  [         Stop Session         ]              │
+│  ● ○   ← page indicator (← swipe for HR)      │
+│                                                │
+│  [         Disconnect         ]                │
 └────────────────────────────────────────────────┘
 ```
 
-### 8.2 Chart Library
-
-Use **Vico** (`com.patrykandpatrick.vico`) — a Compose-first chart library for Android.
-Lightweight (~150 KB), actively maintained, supports line charts with annotations.
+### 8.4 Implementation — HorizontalPager
 
 ```kotlin
-// build.gradle.kts
-implementation("com.patrykandpatrick.vico:compose-m3:1.14.0")
+@Composable
+private fun MonitorScreen(viewModel: HrViewModel, deviceId: String) {
+    val pagerState = rememberPagerState(pageCount = { 2 })
+
+    HorizontalPager(state = pagerState) { page ->
+        when (page) {
+            0 -> LiveHrPage(viewModel = viewModel, deviceId = deviceId)
+            1 -> LiveHrvPage(viewModel = viewModel, deviceId = deviceId)
+        }
+    }
+}
 ```
+
+`HorizontalPager` requires:
+```kotlin
+// build.gradle.kts — already bundled with compose-foundation, no extra dep needed
+implementation("androidx.compose.foundation:foundation")
+```
+
+### 8.5 History Screen
+
+Session history (`HrvHistoryScreen`) is a **separate screen** accessible from the app's
+top-level navigation (e.g. top bar icon), not part of the pager. It shows past sessions
+with charts and is only relevant when NOT in an active monitoring session.
 
 ---
 
@@ -454,12 +588,14 @@ implementation("com.patrykandpatrick.vico:compose-m3:1.14.0")
 - [ ] `StartHrvSessionUseCase.kt`, `StopHrvSessionUseCase.kt`, `RecordHrvSnapshotUseCase.kt`, `GetSessionHistoryUseCase.kt`
 - [ ] Unit tests with MockK for each use case
 
-### Phase C — Room Persistence ⏱️ ~1 day
+### Phase C — File Persistence ⏱️ ~0.5 day
 
-- [ ] `HrvSessionEntity.kt`, `HrvSnapshotEntity.kt`
-- [ ] `HrvSessionDao.kt` — `insert`, `getSessionById`, `getSnapshotsForSession`, `updateEndTime`
-- [ ] `AppDatabase.kt` — migration version bump
-- [ ] `HrvSessionRoomAdapter.kt` — implements `HrvSessionRepositoryPort`
+- [ ] `HrvSessionFileAdapter.kt` — implements `HrvSessionRepositoryPort`
+  - [ ] `appendSnapshot()` — JSONL append with `Dispatchers.IO`
+  - [ ] `loadAll()` — read + deserialise all session files
+  - [ ] `finaliseSession()` — update header line with `endTime`
+- [ ] Add `kotlinx-serialization-json` dependency if not already present
+- [ ] Unit test: `HrvSessionFileAdapterTest` — write + read round-trip using a temp dir
 
 ### Phase D — ViewModel ⏱️ ~2 days
 
