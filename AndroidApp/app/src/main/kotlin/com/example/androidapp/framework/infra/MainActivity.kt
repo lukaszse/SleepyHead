@@ -15,16 +15,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import com.example.androidapp.framework.bootstrap.AppDependencies
-import com.example.androidapp.framework.infra.ui.HrScreen
+import com.example.androidapp.framework.bootstrap.SleepyHeadApplication
+import com.example.androidapp.framework.infra.ui.AppNavigation
 import com.example.androidapp.framework.infra.ui.theme.AndroidAppTheme
 
 /**
  * Application entry point responsible for:
  * - requesting BLE runtime permissions (Android 12+),
  * - obtaining a wired [HrViewModel][com.example.androidapp.framework.adapter.input.HrViewModel]
- *   from the [AppDependencies] bootstrap,
- * - hosting the Compose [HrScreen].
+ *   from the [SleepyHeadApplication] bootstrap,
+ * - hosting the Compose [AppNavigation][com.example.androidapp.framework.infra.ui.AppNavigation].
  *
  * In Davi Vieira's hexagonal architecture this class is **framework infrastructure** —
  * an Android-specific shell that delegates DI wiring to the bootstrap layer.
@@ -44,15 +44,14 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         requestBlePermissions()
 
-        // Obtain a fully wired ViewModel from the bootstrap composition root
-        val dependencies = AppDependencies(applicationContext)
-        val viewModel = dependencies.viewModel
+        // Obtain a fully wired ViewModel from the Application-level composition root
+        val viewModel = (application as SleepyHeadApplication).dependencies.viewModel
 
         setContent {
             AndroidAppTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     if (permissionsGranted.value) {
-                        HrScreen(viewModel = viewModel)
+                        AppNavigation(viewModel = viewModel)
                     } else {
                         Text(
                             text = "Bluetooth permissions are required to use this app.",
@@ -72,18 +71,20 @@ class MainActivity : ComponentActivity() {
      * - Android < 6: permissions granted at install time.
      */
     private fun requestBlePermissions() {
-        val needed = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Android 12+ — new BLE permissions, no location needed
-            arrayOf(
-                Manifest.permission.BLUETOOTH_SCAN,
-                Manifest.permission.BLUETOOTH_CONNECT
-            )
-        } else {
-            // Android 6–11 — BLE scan requires location permission
-            arrayOf(
-                Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
+        val needed = buildList {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // Android 12+ — new BLE permissions, no location needed
+                add(Manifest.permission.BLUETOOTH_SCAN)
+                add(Manifest.permission.BLUETOOTH_CONNECT)
+            } else {
+                // Android 6–11 — BLE scan requires location permission
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
+            // Android 13+ — notification permission required for ForegroundService
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
         }.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }.toTypedArray()

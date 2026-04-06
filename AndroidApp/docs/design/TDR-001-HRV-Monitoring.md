@@ -1,7 +1,7 @@
 # TDR-001: HRV Monitoring — Local Session Recording with Live RMSSD
 
-**Status:** Proposed
-**Date:** 2026-04-05
+**Status:** Complete (Phases A–F)
+**Date:** 2026-04-05 (updated: 2026-04-06)
 **Author:** Lukasz Seremak
 **Relates to:** ADR-001 (Polar H10 Integration), `android-implementation-plan.md` Faza 1b
 
@@ -574,52 +574,84 @@ with charts and is only relevant when NOT in an active monitoring session.
 
 ## 9. Implementation Plan
 
-### Phase A — Domain + Calculator ⏱️ ~1 day
+### Phase A — Domain + Calculator ✅ Complete (2026-04-06)
 
-- [ ] `HrvSnapshot.kt` — value object
-- [ ] `HrvSession.kt` — aggregate with `averageRmssd`
-- [ ] `HrvCalculator.kt` — `rmssd(List<Int>): Double?` with 5-min window support
-- [ ] Unit tests: `HrvCalculatorTest` — edge cases (empty list, < 20 intervals, known values)
+- [x] `HrvSnapshot.kt` — value object
+- [x] `HrvSession.kt` — aggregate with `averageRmssd`
+- [x] `HrvCalculator.kt` — `rmssd(List<Int>): Double?` with 5-min window support
+- [x] Unit tests: `HrvCalculatorTest` (12 tests), `HrvSessionTest` (5 tests) — all passing
 
-### Phase B — Application Layer (Ports + Use Cases) ⏱️ ~1 day
+### Phase B — Application Layer (Ports + Use Cases) ✅ Complete (2026-04-06)
 
-- [ ] `HrvSessionRepositoryPort.kt` — output port interface
-- [ ] `StartHrvSessionInputPort.kt`, `StopHrvSessionInputPort.kt`, `GetSessionHistoryInputPort.kt`
-- [ ] `StartHrvSessionUseCase.kt`, `StopHrvSessionUseCase.kt`, `RecordHrvSnapshotUseCase.kt`, `GetSessionHistoryUseCase.kt`
-- [ ] Unit tests with MockK for each use case
+- [x] `HrvSessionRepositoryPort.kt` — output port interface
+- [x] `StartHrvSessionInputPort.kt`, `StopHrvSessionInputPort.kt`, `GetSessionHistoryInputPort.kt`, `RecordHrvSnapshotInputPort.kt`
+- [x] `StartHrvSessionUseCase.kt`, `StopHrvSessionUseCase.kt`, `RecordHrvSnapshotUseCase.kt`, `GetSessionHistoryUseCase.kt`
+- [x] Unit tests with MockK: `StartHrvSessionInputPortTest` (6), `StopHrvSessionInputPortTest` (5), `RecordHrvSnapshotInputPortTest` (3), `GetSessionHistoryInputPortTest` (4) — all passing
 
-### Phase C — File Persistence ⏱️ ~0.5 day
+### Phase C — File Persistence ✅ Complete (2026-04-06)
 
-- [ ] `HrvSessionFileAdapter.kt` — implements `HrvSessionRepositoryPort`
-  - [ ] `appendSnapshot()` — JSONL append with `Dispatchers.IO`
-  - [ ] `loadAll()` — read + deserialise all session files
-  - [ ] `finaliseSession()` — update header line with `endTime`
-- [ ] Add `kotlinx-serialization-json` dependency if not already present
-- [ ] Unit test: `HrvSessionFileAdapterTest` — write + read round-trip using a temp dir
+- [x] `HrvSessionFileAdapter.kt` — implements `HrvSessionRepositoryPort`
+  - [x] `appendSnapshot()` — JSONL append with `Dispatchers.IO`
+  - [x] `loadAll()` — read + deserialise all session files
+  - [x] `finaliseSession()` — update header line with `endTime`
+  - [x] `createSession()` — write initial header line
+- [x] Added `kotlinx-serialization-json` dependency + serialization plugin
+- [x] Unit test: `HrvSessionFileAdapterTest` (8 tests) — write + read round-trip using temp dir, all passing
 
-### Phase D — ViewModel ⏱️ ~2 days
+### Phase D — ViewModel ✅ Complete (2026-04-06)
 
-- [ ] `HrvViewModel.kt`
-  - [ ] 5-min sliding RR buffer (`ArrayDeque<Pair<Long, Int>>` — timestamp + value)
-  - [ ] Per-minute snapshot coroutine
-  - [ ] Auto-end watcher (2-hour gap detection)
-  - [ ] BLE reconnect loop
-  - [ ] StateFlow: `currentRmssd`, `sessionAverage`, `sessionSnapshots`, `sessionActive`, `latestRrIntervals`
-- [ ] `HrvViewModelTest.kt` — Turbine + MockK + `UnconfinedTestDispatcher`
+- [x] HRV state integrated into existing `HrViewModel` (not a separate ViewModel)
+  - [x] 5-min sliding RR buffer (`ArrayDeque<Pair<Long, Int>>` — timestamp + value)
+  - [x] Per-minute snapshot coroutine (structured child of `monitoringJob`)
+  - [x] Auto-end watcher (2-hour gap detection, structured child of `monitoringJob`)
+  - [x] StateFlow: `currentRmssd`, `sessionAverage`, `sessionSnapshots`, `sessionActive`
+  - [x] `timeProvider: () -> Long` injected for testability
+- [x] `HrViewModelTest.kt` (24 tests) — MockK + `UnconfinedTestDispatcher` / `StandardTestDispatcher`, all passing
+- [x] `AppDependencies.kt` updated — wires HRV adapters, input ports, and ViewModel
+- [x] **Total: 76 tests, 0 failures** across all layers
 
-### Phase E — UI ⏱️ ~2 days
+> **Design note (Phase D):** Timer and watcher coroutines use **structured concurrency** —
+> they are launched as children of `monitoringJob` via `launch { }` inside the monitoring
+> coroutine. This ensures that `monitoringJob.cancel()` (called by `stopMonitoring()`)
+> tears down all child coroutines automatically, preventing coroutine leaks.
+> The `while(_isConnected.value)` loop condition provides a secondary exit path
+> for cases where the stream errors out (setting `_isConnected = false`) without
+> an explicit `stopMonitoring()` call.
 
-- [ ] Add Vico dependency
-- [ ] `HrvMonitorScreen.kt` — live chart, current RMSSD, session avg, RR intervals, Stop button
-- [ ] `HrvHistoryScreen.kt` — list of past sessions, tap to see chart
-- [ ] Navigation: integrate both screens into `NavHost`
-- [ ] Update `AppDependencies.kt` — wire up new use cases and ViewModel
+### Phase E — UI ✅ Complete (2026-04-06)
 
-### Phase F — ForegroundService Integration ⏱️ ~1 day
+- [x] `LiveHrvPage.kt` — Canvas-based live RMSSD chart with dashed session-average line, "Now" and "Session avg" value cards, "Warming up…" placeholder
+- [x] `LiveHrPage.kt` — BPM + RR intervals display (existing, unchanged)
+- [x] `HrScreen.kt` — `HorizontalPager` (Page 0: LiveHrPage, Page 1: LiveHrvPage), page indicator dots, history icon button
+- [x] `HrvHistoryScreen.kt` — expandable session cards with inline Canvas chart, session stats (min/max/avg RMSSD, start/end times), loading/empty states
+- [x] `AppNavigation.kt` — `NavHost` with `Route.HR` and `Route.HISTORY`, back navigation
+- [x] `MainActivity.kt` — switched from `HrScreen` to `AppNavigation` for full navigation support
+- [x] Added `testOptions.unitTests.isReturnDefaultValues = true` to `build.gradle.kts` (fixes `android.util.Log` in unit tests)
+- [x] No external chart library needed — Canvas-based charts used instead of Vico
+- [x] `HrViewModelTest.kt` extended with 3 session history tests (load, empty, error)
+- [x] **Total: 79 tests, 0 failures** across all layers
 
-- [ ] Ensure HRV collection survives screen-off (required for sleep monitoring)
-- [ ] Move `HrvViewModel` coroutine scope to a `ForegroundService` scope
-- [ ] "Sleep session active" persistent notification
+### Phase F — ForegroundService Integration ✅ Complete (2026-04-06)
+
+- [x] `MonitoringServicePort.kt` — output port interface (hexagonal contract)
+- [x] `HrvMonitoringService.kt` — ForegroundService with persistent notification + `PARTIAL_WAKE_LOCK` (10h timeout)
+- [x] `HrvServiceController.kt` — thin adapter implementing `MonitoringServicePort` via Android Intents
+- [x] `SleepyHeadApplication.kt` — `Application` subclass holding `AppDependencies` as singleton (ViewModel survives Activity recreation)
+- [x] `HrViewModel.kt` — calls `monitoringServicePort.startForegroundMonitoring()` / `stopForegroundMonitoring()` during monitoring lifecycle
+- [x] `AppDependencies.kt` — wires `HrvServiceController` into ViewModel
+- [x] `MainActivity.kt` — reads ViewModel from `SleepyHeadApplication.dependencies`, requests `POST_NOTIFICATIONS` (Android 13+)
+- [x] `AndroidManifest.xml` — `WAKE_LOCK`, `POST_NOTIFICATIONS` permissions, `<service>` with `foregroundServiceType="connectedDevice"`, `android:name` Application class
+- [x] `HrViewModelTest.kt` — 4 new tests: service port start/stop/not-on-failure/error-resilience
+- [x] **Total: 83 tests, 0 failures** across all layers
+
+> **Design note (Phase F):** The ForegroundService acts as a **keep-alive shell** —
+> it does not own the monitoring logic (which remains in `HrViewModel`).
+> Its responsibilities are: (1) persistent notification, (2) `PARTIAL_WAKE_LOCK`,
+> (3) foreground process status preventing Android from killing the app during sleep.
+> `MonitoringServicePort` is nullable (`MonitoringServicePort? = null`) in the ViewModel
+> constructor, making it optional for unit tests that don't need service interaction.
+> `AppDependencies` is now `Application`-scoped via `SleepyHeadApplication`, ensuring
+> the ViewModel and its coroutines survive Activity recreation.
 
 ---
 
