@@ -1,0 +1,92 @@
+# ===========================
+# IDE - IntelliJ / Android Studio
+# ===========================
+.idea/
+**/.idea/
+*.iml
+*.iws
+*.ipr
+
+# ===========================
+# Build outputs
+# ===========================
+build/
+**/build/
+out/
+
+# ===========================
+# Gradle
+# ===========================
+.gradle/
+**/.gradle/
+**/gradle-app.setting
+**/!gradle/wrapper/gradle-wrapper.jar
+
+# ===========================
+# Kotlin
+# ===========================
+.kotlin/
+**/.kotlin/
+
+# ===========================
+# Local configuration (secrets, SDK paths)
+# ===========================
+local.properties
+**/local.properties
+*.keystore
+*.jks
+signing.properties
+
+# ===========================
+# OS generated files
+# ===========================
+.DS_Store
+**/.DS_Store
+Thumbs.db
+**/Thumbs.db
+Desktop.ini
+ehthumbs.db
+$RECYCLE.BIN/
+
+# ===========================
+# Logs & crash reports
+# ===========================
+*.log
+*.hprof
+hs_err_pid*
+
+# ===========================
+# APK / AAB / bundle files
+# ===========================
+*.apk
+*.ap_
+*.aab
+*.dex
+
+# ===========================
+# Google Services (contains API keys)
+# ===========================
+google-services.json
+
+# ===========================
+# Miscellaneous
+# ===========================
+*.class
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+*.swp
+*.swo
+*~
+.env
+**/.env
+.env.*
+captures/
+.externalNativeBuild/
+.cxx/
+*.orig
