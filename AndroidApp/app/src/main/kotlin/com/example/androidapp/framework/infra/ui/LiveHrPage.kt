@@ -38,6 +38,9 @@ fun LiveHrPage(viewModel: HrViewModel) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Text(
             text = hrData?.bpm?.toString() ?: "--",
             fontSize = 96.sp,

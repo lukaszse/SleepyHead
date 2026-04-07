@@ -94,6 +94,9 @@ private fun ScanScreen(
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         Text(
             text = "Find your Polar device",
             style = MaterialTheme.typography.headlineMedium
