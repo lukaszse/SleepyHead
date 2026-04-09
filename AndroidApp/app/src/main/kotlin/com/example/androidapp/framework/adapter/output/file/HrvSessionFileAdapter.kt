@@ -38,7 +38,7 @@ class HrvSessionFileAdapter(
             startTime = session.startTime,
             endTime = session.endTime
         )
-        fileFor(session.id).writeText(json.encodeToString(header) + "\n")
+        findFileBySessionId(session.id).writeText(json.encodeToString(header) + "\n")
     }
 
     override suspend fun appendSnapshot(sessionId: String, snapshot: HrvSnapshot): Unit =
@@ -50,11 +50,11 @@ class HrvSessionFileAdapter(
                 rrIntervalCount = snapshot.rrIntervalCount,
                 windowDurationMs = snapshot.windowDurationMs
             )
-            fileFor(sessionId).appendText(json.encodeToString(line) + "\n")
+            findFileBySessionId(sessionId).appendText(json.encodeToString(line) + "\n")
         }
 
     override suspend fun finaliseSession(session: HrvSession): Unit = withContext(Dispatchers.IO) {
-        val file = fileFor(session.id)
+        val file = findFileBySessionId(session.id)
         if (!file.exists()) return@withContext
 
         val lines = file.readLines().toMutableList()
@@ -71,6 +71,12 @@ class HrvSessionFileAdapter(
         file.writeText(lines.joinToString("\n") + "\n")
     }
 
+    override suspend fun findById(sessionId: String): HrvSession? = withContext(Dispatchers.IO) {
+        val file = findFileBySessionId(sessionId)
+        if (!file.exists()) return@withContext null
+        parseFile(file)
+    }
+
     override suspend fun loadAll(): List<HrvSession> = withContext(Dispatchers.IO) {
         dir.listFiles { f -> f.extension == "jsonl" }
             ?.mapNotNull { parseFile(it) }
@@ -80,7 +86,7 @@ class HrvSessionFileAdapter(
 
     // ── Internal ────────────────────────────────────────────────────
 
-    private fun fileFor(sessionId: String): File {
+    private fun findFileBySessionId(sessionId: String): File {
         val existing = dir.listFiles { f -> f.name.contains(sessionId) }?.firstOrNull()
         return existing ?: dir.resolve("hrv_${sessionId}.jsonl")
     }
@@ -91,12 +97,12 @@ class HrvSessionFileAdapter(
 
         val header = json.decodeFromString<HeaderLine>(lines.first())
         val snapshots = lines.drop(1).map { line ->
-            val s = json.decodeFromString<SnapshotLine>(line)
+            val snapshotLine = json.decodeFromString<SnapshotLine>(line)
             HrvSnapshot(
-                timestamp = s.timestamp,
-                rmssdMs = s.rmssdMs,
-                rrIntervalCount = s.rrIntervalCount,
-                windowDurationMs = s.windowDurationMs
+                timestamp = snapshotLine.timestamp,
+                rmssdMs = snapshotLine.rmssdMs,
+                rrIntervalCount = snapshotLine.rrIntervalCount,
+                windowDurationMs = snapshotLine.windowDurationMs
             )
         }
 

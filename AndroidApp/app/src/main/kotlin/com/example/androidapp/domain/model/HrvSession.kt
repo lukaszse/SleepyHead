@@ -22,8 +22,7 @@ data class HrvSession(
      * Running average of all RMSSD snapshots in this session.
      * Returns `null` if no snapshots have been recorded yet.
      */
-    val averageRmssd: Double?
-        get() = if (snapshots.isEmpty()) null
-                else snapshots.map { it.rmssdMs }.average()
+    val averageRmssd: Double? =
+        if (snapshots.isEmpty()) null
+        else snapshots.map { it.rmssdMs }.average()
 }
-

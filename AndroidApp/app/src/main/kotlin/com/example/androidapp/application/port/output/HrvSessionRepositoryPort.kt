@@ -37,6 +37,14 @@ interface HrvSessionRepositoryPort {
     suspend fun finaliseSession(session: HrvSession)
 
     /**
+     * Find a single session by its unique identifier.
+     *
+     * @param sessionId Unique identifier of the target session.
+     * @return The matching [HrvSession] with its snapshots, or `null` if not found.
+     */
+    suspend fun findById(sessionId: String): HrvSession?
+
+    /**
      * Load all persisted sessions, ordered by start time descending.
      *
      * @return List of all sessions with their snapshots.

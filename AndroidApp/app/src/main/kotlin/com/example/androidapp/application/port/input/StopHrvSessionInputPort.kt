@@ -11,10 +11,10 @@ import com.example.androidapp.domain.model.HrvSession
  * In hexagonal architecture (Davi Vieira style) the input port is the concrete
  * class that orchestrates the use case logic.
  *
- * @param repository Output port used to persist HRV session data.
+ * @param hrvSessionRepositoryPort Output port used to persist HRV session data.
  */
 class StopHrvSessionInputPort(
-    private val repository: HrvSessionRepositoryPort
+    private val hrvSessionRepositoryPort: HrvSessionRepositoryPort
 ) : StopHrvSessionUseCase {
 
     /**
@@ -24,10 +24,10 @@ class StopHrvSessionInputPort(
      * @return The finalised [HrvSession] with `endTime` set.
      */
     override suspend fun invoke(sessionId: String): HrvSession {
-        val allSessions = repository.loadAll()
-        val session = allSessions.first { it.id == sessionId }
+        val session = hrvSessionRepositoryPort.findById(sessionId)
+            ?: throw NoSuchElementException("Session not found: $sessionId")
         val finalised = session.copy(endTime = System.currentTimeMillis())
-        repository.finaliseSession(finalised)
+        hrvSessionRepositoryPort.finaliseSession(finalised)
         return finalised
     }
 }
