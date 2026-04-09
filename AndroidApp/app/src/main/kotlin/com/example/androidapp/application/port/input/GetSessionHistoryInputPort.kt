@@ -11,10 +11,10 @@ import com.example.androidapp.domain.model.HrvSession
  * In hexagonal architecture (Davi Vieira style) the input port is the concrete
  * class that orchestrates the use case logic.
  *
- * @param repository Output port used to persist HRV session data.
+ * @param hrvSessionRepositoryPort Output port used to persist HRV session data.
  */
 class GetSessionHistoryInputPort(
-    private val repository: HrvSessionRepositoryPort
+    private val hrvSessionRepositoryPort: HrvSessionRepositoryPort
 ) : GetSessionHistoryUseCase {
 
     /**
@@ -23,6 +23,6 @@ class GetSessionHistoryInputPort(
      * @return List of all [HrvSession] objects with their snapshots.
      */
     override suspend fun invoke(): List<HrvSession> =
-        repository.loadAll()
+        hrvSessionRepositoryPort.loadAll()
 }
 

@@ -34,7 +34,6 @@ object HrvCalculator {
      */
     fun rmssd(rrIntervals: List<Int>): Double? {
         if (rrIntervals.size < MIN_INTERVALS) return null
-
         val differences = rrIntervals.zipWithNext { a, b -> (b - a).toDouble() }
         val meanSquare = differences.map { it * it }.average()
         return sqrt(meanSquare)

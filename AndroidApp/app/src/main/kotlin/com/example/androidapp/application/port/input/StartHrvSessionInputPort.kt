@@ -12,10 +12,10 @@ import java.util.UUID
  * In hexagonal architecture (Davi Vieira style) the input port is the concrete
  * class that orchestrates the use case logic.
  *
- * @param repository Output port used to persist HRV session data.
+ * @param hrvSessionRepositoryPort Output port used to persist HRV session data.
  */
 class StartHrvSessionInputPort(
-    private val repository: HrvSessionRepositoryPort
+    private val hrvSessionRepositoryPort: HrvSessionRepositoryPort
 ) : StartHrvSessionUseCase {
 
     /**
@@ -28,7 +28,7 @@ class StartHrvSessionInputPort(
             id = UUID.randomUUID().toString(),
             startTime = System.currentTimeMillis()
         )
-        repository.createSession(session)
+        hrvSessionRepositoryPort.createSession(session)
         return session
     }
 }

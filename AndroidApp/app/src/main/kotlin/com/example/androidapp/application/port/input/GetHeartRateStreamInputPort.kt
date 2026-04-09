@@ -12,10 +12,10 @@ import kotlinx.coroutines.flow.Flow
  * In hexagonal architecture (Davi Vieira style) the input port is the concrete
  * class that orchestrates the use case logic.
  *
- * @param monitorPort Output port used to communicate with the heart-rate hardware.
+ * @param heartRateMonitorPort Output port used to communicate with the heart-rate hardware.
  */
 class GetHeartRateStreamInputPort(
-    private val monitorPort: HeartRateMonitorPort
+    private val heartRateMonitorPort: HeartRateMonitorPort
 ) : GetHeartRateStreamUseCase {
 
     /**
@@ -25,6 +25,6 @@ class GetHeartRateStreamInputPort(
      * @return [Flow] emitting [HrData] objects as they arrive from the sensor.
      */
     override fun invoke(deviceId: String): Flow<HrData> =
-        monitorPort.getHeartRateStream(deviceId)
+        heartRateMonitorPort.getHeartRateStream(deviceId)
 }
 
