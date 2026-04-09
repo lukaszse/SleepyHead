@@ -88,12 +88,13 @@ This project uses specialized AI agents for specific tasks. Their definition fil
 
 | Agent | Definition File | Role |
 |---|---|---|
-| **Architecture Agent** | `.github/agents/architecture-agent.md` | Manages architectural decisions, ADRs, and structural integrity. |
-| **Doc Agent** | `.github/agents/doc-agent.md` | Organizes markdown documentation, bug templates, and references `paths.json`. |
-| **Diagram Agent** | `.github/agents/diagram-agent.md` | Handles creation and updates of visual diagrams (e.g., Mermaid). |
-| **QA Agent** | `.github/agents/qa-agent.md` | Discovers bugs, tests edge cases, and delegates bug reports to the Doc Agent. |
+| **Architecture Agent** | `.github/agents/architecture.agent.md` | Manages architectural decisions, ADRs, and structural integrity. |
+| **Doc Agent** | `.github/agents/doc.agent.md` | Organizes markdown documentation, bug templates, and references `paths.json`. |
+| **Diagram Agent** | `.github/agents/diagram.agent.md` | Handles creation and updates of visual diagrams (e.g., Mermaid). |
+| **QA Agent** | `.github/agents/qa.agent.md` | Discovers bugs, tests edge cases, and delegates bug reports to the Doc Agent. |
 
 > **Note:** Whenever you generate documentation or logs, verify the expected paths in [`paths.json`](paths.json).
+
 
 
 
