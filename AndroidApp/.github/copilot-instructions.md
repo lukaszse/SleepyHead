@@ -1,4 +1,4 @@
-# GitHub Copilot — Project Instructions for SleepyHead
+﻿# GitHub Copilot â€” Project Instructions for SleepyHead
 
 ## Response Language
 
@@ -7,13 +7,13 @@
 
 ## Response Formatting
 
-- **Write clearly.** Avoid walls of text — split responses into short sections with headings.
+- **Write clearly.** Avoid walls of text â€” split responses into short sections with headings.
 - Use **Markdown headings** (`##`, `###`) to organize sections.
-- Format tables properly — with full names, no truncated text.
+- Format tables properly â€” with full names, no truncated text.
 - Use bullet lists instead of long paragraphs.
 - Always specify the language in code blocks (e.g., ` ```kotlin `).
 - Use blank lines between sections for readability.
-- Keep sentences short and concrete — don't ramble.
+- Keep sentences short and concrete â€” don't ramble.
 
 ## Project Overview
 
@@ -23,24 +23,24 @@
 - **Language:** Kotlin
 - **Repo:** https://github.com/lukaszse/SleepyHead
 
-## Architecture — Hexagonal / Ports & Adapters
+## Architecture â€” Hexagonal / Ports & Adapters
 
 The project follows strict hexagonal architecture. **Never violate dependency direction.**
 
 ```
-domain/          → Pure Kotlin. NO Android imports. NO framework dependencies.
+domain/          â†’ Pure Kotlin. NO Android imports. NO framework dependencies.
                    Models (value objects, aggregates) + domain services.
 
-application/     → Use cases + port interfaces.
-  port/input/    → Driving ports (UI calls these).
-  port/output/   → Driven ports (interfaces that adapters implement).
-  usecase/       → Implementations of input ports. Depend on output ports.
+application/     â†’ Use cases + port interfaces.
+  port/input/    â†’ Driving ports (UI calls these).
+  port/output/   â†’ Driven ports (interfaces that adapters implement).
+  usecase/       â†’ Implementations of input ports. Depend on output ports.
 
-framework/       → Android-specific. Adapters + UI + bootstrap.
-  adapter/input/ → Driving adapters (ViewModels).
-  adapter/output/→ Driven adapters (Polar BLE SDK, file storage, services).
-  bootstrap/     → DI wiring (AppDependencies), Application subclass.
-  infra/         → MainActivity, Compose UI screens.
+framework/       â†’ Android-specific. Adapters + UI + bootstrap.
+  adapter/input/ â†’ Driving adapters (ViewModels).
+  adapter/output/â†’ Driven adapters (Polar BLE SDK, file storage, services).
+  bootstrap/     â†’ DI wiring (AppDependencies), Application subclass.
+  infra/         â†’ MainActivity, Compose UI screens.
 ```
 
 ### Rules
@@ -48,24 +48,24 @@ framework/       → Android-specific. Adapters + UI + bootstrap.
 1. **Domain** must NEVER import anything from `application`, `framework`, or Android SDK.
 2. **Application** depends on domain. Defines ports. Must NOT import framework.
 3. **Framework** implements ports. Depends on application + domain. May import Android SDK.
-4. New sensors → new adapter implementing existing output port. Domain untouched.
+4. New sensors â†’ new adapter implementing existing output port. Domain untouched.
 5. All port interfaces live in `application/port/`. Never in `domain/` or `framework/`.
 
 ## Code Style
 
-- Class, method, and variable names — **in English**.
-- KDoc comments — **in English**.
+- Class, method, and variable names â€” **in English**.
+- KDoc comments â€” **in English**.
 - One class per file (except sealed classes / small related value objects).
 - Data classes for value objects and aggregates.
 - `object` for stateless domain services (e.g., `HrvCalculator`).
 
 ## Async & Concurrency
 
-- **Coroutines + Flow** — primary async mechanism.
-- **RxJava** — ONLY in Polar SDK adapter layer (`PolarBleAdapter.kt`), bridged to Flow via `kotlinx-coroutines-rx3`.
+- **Coroutines + Flow** â€” primary async mechanism.
+- **RxJava** â€” ONLY in Polar SDK adapter layer (`PolarBleAdapter.kt`), bridged to Flow via `kotlinx-coroutines-rx3`.
 - Never expose RxJava types outside the adapter.
 - Use `StateFlow` for UI state in ViewModels.
-- Use structured concurrency — child coroutines tied to parent Job.
+- Use structured concurrency â€” child coroutines tied to parent Job.
 
 ## Testing
 
@@ -79,11 +79,11 @@ framework/       → Android-specific. Adapters + UI + bootstrap.
 
 ## Persistence
 
-- **JSONL files** — one file per session, one JSON line per snapshot.
+- **JSONL files** â€” one file per session, one JSON line per snapshot.
 - Header line (type: "header") + snapshot lines (type: "snapshot").
 - Stored in `context.filesDir/hrv_sessions/`.
 - `kotlinx-serialization-json` for serialization.
-- Room/SQLite is NOT used (intentional decision — see TDR-001 §7.1).
+- Room/SQLite is NOT used (intentional decision â€” see TDR-001 Â§7.1).
 
 ## BLE
 
@@ -96,17 +96,17 @@ framework/       → Android-specific. Adapters + UI + bootstrap.
 
 - `ForegroundService` with persistent notification for overnight monitoring.
 - `PARTIAL_WAKE_LOCK` (10h timeout) to prevent CPU sleep.
-- Service is a keep-alive shell — monitoring logic remains in ViewModel.
+- Service is a keep-alive shell â€” monitoring logic remains in ViewModel.
 - `MonitoringServicePort` is nullable in ViewModel (optional for unit tests).
 
 ## Key Documents
 
 Read these before making architectural decisions:
 
-- `docs/achitecture/ADR-001-Polar-H10-Integration.md` — why Polar H10 + Android
-- `docs/achitecture/ADR-002-Testing-Stack.md` — testing stack rationale
-- `docs/design/TDR-001-HRV-Monitoring.md` — HRV feature design (phases A–F, all complete)
-- `docs/concept/CONCEPT-001-Sleep-Apnea-Screening.md` — sleep apnea screening concept
+- `docs/achitecture/ADR-001-Polar-H10-Integration.md` â€” why Polar H10 + Android
+- `docs/achitecture/ADR-002-Testing-Stack.md` â€” testing stack rationale
+- `docs/design/TDR-001-HRV-Monitoring.md` â€” HRV feature design (phases Aâ€“F, all complete)
+- `docs/concept/CONCEPT-001-Sleep-Apnea-Screening.md` â€” sleep apnea screening concept
 
 ## Dependencies
 
@@ -118,3 +118,9 @@ Key dependencies (see `app/build.gradle.kts` for full list):
 - `io.mockk:mockk:1.13.13`
 - `app.cash.turbine:turbine:1.2.0`
 - Jetpack Compose BOM `2024.12.01`
+
+
+## AI Agents Paths
+
+> **Note:** For all expected locations of code, tests, and documentation, the AI Agents rely on [paths.json](paths.json) in the root directory.
+

@@ -1,0 +1,17 @@
+﻿{
+  "_comment": "Central registry of project paths for AI Agents",
+  "documentation": {
+    "adr": "docs/achitecture/",
+    "tdr": "docs/design/",
+    "concept": "docs/concept/",
+    "implementation_plan": "docs/implementation-plan/",
+    "troubleshooting": "docs/troubleshooting/",
+    "bug_reports": "docs/bugs/",
+    "diagrams": "docs/diagrams/"
+  },
+  "code": {
+    "production": "app/src/main/kotlin/com/example/androidapp/",
+    "unit_tests": "app/src/test/kotlin/com/example/androidapp/",
+    "instrumented_tests": "app/src/androidTest/kotlin/com/example/androidapp/"
+  }
+}
