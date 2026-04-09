@@ -28,7 +28,7 @@ class StopHrvSessionInputPortTest {
 
     @Test
     fun `invoke sets endTime on the session`() = runTest {
-        coEvery { repository.loadAll() } returns listOf(activeSession)
+        coEvery { repository.findById("session-123") } returns activeSession
 
         val result = inputPort("session-123")
 
@@ -37,7 +37,7 @@ class StopHrvSessionInputPortTest {
 
     @Test
     fun `invoke preserves session id and startTime`() = runTest {
-        coEvery { repository.loadAll() } returns listOf(activeSession)
+        coEvery { repository.findById("session-123") } returns activeSession
 
         val result = inputPort("session-123")
 
@@ -47,7 +47,7 @@ class StopHrvSessionInputPortTest {
 
     @Test
     fun `invoke preserves existing snapshots`() = runTest {
-        coEvery { repository.loadAll() } returns listOf(activeSession)
+        coEvery { repository.findById("session-123") } returns activeSession
 
         val result = inputPort("session-123")
 
@@ -57,7 +57,7 @@ class StopHrvSessionInputPortTest {
 
     @Test
     fun `invoke delegates to repository finaliseSession`() = runTest {
-        coEvery { repository.loadAll() } returns listOf(activeSession)
+        coEvery { repository.findById("session-123") } returns activeSession
         val sessionSlot = slot<HrvSession>()
         coEvery { repository.finaliseSession(capture(sessionSlot)) } returns Unit
 
@@ -70,13 +70,25 @@ class StopHrvSessionInputPortTest {
 
     @Test
     fun `invoke sets endTime close to current time`() = runTest {
-        coEvery { repository.loadAll() } returns listOf(activeSession)
+        coEvery { repository.findById("session-123") } returns activeSession
 
         val before = System.currentTimeMillis()
         val result = inputPort("session-123")
         val after = System.currentTimeMillis()
 
         assert(result.endTime!! in before..after)
+    }
+
+    @Test
+    fun `invoke throws NoSuchElementException when session not found`() = runTest {
+        coEvery { repository.findById("missing") } returns null
+
+        try {
+            inputPort("missing")
+            assert(false) { "Expected NoSuchElementException" }
+        } catch (e: NoSuchElementException) {
+            assertEquals("Session not found: missing", e.message)
+        }
     }
 }
 

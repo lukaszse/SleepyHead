@@ -60,6 +60,21 @@ class HrvSessionFileAdapterTest {
     }
 
     @Test
+    fun findByIdReturnsSessionWhenFileExists() = runTest {
+        adapter.createSession(HrvSession(id = "s1", startTime = 1000L))
+        adapter.appendSnapshot("s1", HrvSnapshot(2000L, 42.3, 312, 300_000L))
+        val session = adapter.findById("s1")
+        assertNotNull(session)
+        assertEquals("s1", session!!.id)
+        assertEquals(1, session.snapshots.size)
+    }
+
+    @Test
+    fun findByIdReturnsNullWhenFileDoesNotExist() = runTest {
+        assertNull(adapter.findById("nonexistent"))
+    }
+
+    @Test
     fun loadAllRoundTripsSessionWithSnapshots() = runTest {
         adapter.createSession(HrvSession(id = "s1", startTime = 1000L))
         adapter.appendSnapshot("s1", HrvSnapshot(2000L, 42.3, 312, 300_000L))

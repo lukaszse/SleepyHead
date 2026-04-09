@@ -24,8 +24,8 @@ class StopHrvSessionInputPort(
      * @return The finalised [HrvSession] with `endTime` set.
      */
     override suspend fun invoke(sessionId: String): HrvSession {
-        val allSessions = hrvSessionRepositoryPort.loadAll()
-        val session = allSessions.first { it.id == sessionId }
+        val session = hrvSessionRepositoryPort.findById(sessionId)
+            ?: throw NoSuchElementException("Session not found: $sessionId")
         val finalised = session.copy(endTime = System.currentTimeMillis())
         hrvSessionRepositoryPort.finaliseSession(finalised)
         return finalised
