@@ -1,7 +1,7 @@
-# CONCEPT-001: Sleep Apnea Screening — Polar H10 + Pulse Oximeter
+# CONCEPT-001: Sleep Apnea Screening — Modularna architektura multi-sensor
 
 **Status:** Draft
-**Date:** 2026-04-07
+**Date:** 2026-04-11
 **Author:** Lukasz Seremak
 **Relates to:** ADR-001 (Polar H10 Integration), TDR-001 (HRV Monitoring)
 
@@ -13,10 +13,17 @@
 
 Dokument opisuje koncepcję rozszerzenia aplikacji **SleepyHead** o funkcję
 **screeningu bezdechu sennego** (Sleep Apnea Screening) na podstawie danych
-z dwóch konsumenckich sensorów BLE:
+z **dowolnej kombinacji sensorów BLE**, przy czym:
 
-- **Polar H10** — pas na klatkę piersiową (EKG, akcelerometr, RR interwały)
-- **Pulsoksymetr BLE** ze standardowym profilem PLX (`0x1822`)
+- **Polar H10** jest **głównym, samodzielnym sensorem** — dostarcza pełen zestaw kanałów diagnostycznych (EKG, ACC, RR) i stanowi kompletny system pre-screeningu bez dodatkowych urządzeń
+- **Pulsoksymetr BLE** ze standardowym profilem PLX (`0x1822`) jest **opcjonalnym rozszerzeniem** — podnosi dokładność eAHI, ale nie jest warunkiem działania systemu
+- System **aktywnie informuje użytkownika** o aktualnej konfiguracji sensorów i sugeruje podłączenie dodatkowego sensora, gdy działa w trybie niepełnym
+
+**Polar H10 jako samodzielny system:** Kombinacja RR interwałów, surowego EKG (130 Hz)
+i akcelerometru dostarcza wystarczającą ilość kanałów diagnostycznych, aby dostarczyć
+użyteczne szacowanie eAHI bez pulsoksymetru. Dodanie pulsoksymetru BLE poprawia dokładność
+(z r ≈ 0.65–0.80 do r ≈ 0.80–0.92), ale nie jest warunkiem działania systemu.
+Każda konfiguracja sensorów daje użyteczny wynik — nie ma „trybu niedziałającego".
 
 ### 1.2 Dlaczego teraz
 
@@ -440,18 +447,35 @@ PulseOximeterPort (output port — application layer)
 > adapter Viatom można dopisać później. Obie ścieżki korzystają z tego samego
 > portu `PulseOximeterPort`, więc zamiana adaptera to jedna linia w `AppDependencies.kt`.
 
-### 3.3 Macierz pokrycia — SleepyHead vs. badania kliniczne
+### 3.3 Konfiguracje sensorów — profile funkcjonalne
 
-| Kanał diagnostyczny | PSG (Typ I) | Poligrafia (Typ III) | Typ IV | **SleepyHead (H10 + SpO₂)** |
+System SleepyHead działa z różnymi konfiguracjami sprzętowymi, każda dostarczając
+użyteczny wynik screeningu. Poniższa tabela opisuje dostępne kanały i szacowaną
+dokładność dla każdej konfiguracji.
+
+| Konfiguracja | Dostępne kanały | eAHI korelacja z PSG | Typ odpowiadający | Sugestia systemu |
 |---|---|---|---|---|
-| Fale mózgowe (EEG) | ✅ | ❌ | ❌ | ❌ |
-| Ruchy oczu (EOG) | ✅ | ❌ | ❌ | ❌ |
-| Napięcie mięśni (EMG) | ✅ | ❌ | ❌ | ❌ |
-| EKG / HR | ✅ | ✅ | ❌/częściowo | ✅ **130 Hz EKG** |
-| Przepływ powietrza | ✅ kanula | ✅ kanula | ✅/❌ | ⚠️ **pośrednio (EDR)** |
-| SpO₂ | ✅ medical | ✅ medical | ✅ | ✅ konsumencki |
-| Wysiłek oddechowy | ✅ pasy RIP | ✅ pasy | ❌ | ✅ **ACC na klatce** |
-| Pozycja ciała | ✅ | ✅ | ❌ | ✅ **ACC grawitacja** |
+| **Polar H10 only** | RR + EKG + ACC | r ≈ 0.65–0.80 | Pomiędzy Typ III a Typ IV | "Podłącz pulsoksymetr, aby zwiększyć dokładność" |
+| **Polar H10 + pulsoksymetr** | RR + EKG + ACC + SpO₂ | r ≈ 0.80–0.92 | Pomiędzy Typ II a Typ III | Pełna konfiguracja |
+| **Pulsoksymetr only** *(przyszłość)* | SpO₂ + Pulse Rate | r ≈ 0.65–0.75 | Typ IV | "Podłącz Polar H10, aby uzyskać pełny screening" |
+| **Tylko RR (inny pas)** *(przyszłość)* | RR interwały | r ≈ 0.55–0.70 | Poniżej Typ IV | "Polar H10 dodaje EKG i ACC — znacznie wyższa dokładność" |
+
+System **zawsze informuje użytkownika** o aktualnej konfiguracji sensorów i szacowanej
+dokładności, oraz sugeruje podłączenie dodatkowego sensora. Każda konfiguracja daje
+użyteczny wynik — nie ma „trybu niedziałającego".
+
+### 3.4 Macierz pokrycia — SleepyHead vs. badania kliniczne
+
+| Kanał diagnostyczny | PSG (Typ I) | Poligrafia (Typ III) | Typ IV | **SleepyHead (H10 + SpO₂)** | **SleepyHead (H10 only)** |
+|---|---|---|---|---|---|
+| Fale mózgowe (EEG) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Ruchy oczu (EOG) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Napięcie mięśni (EMG) | ✅ | ❌ | ❌ | ❌ | ❌ |
+| EKG / HR | ✅ | ✅ | ❌/częściowo | ✅ **130 Hz EKG** | ✅ **130 Hz EKG** |
+| Przepływ powietrza | ✅ kanula | ✅ kanula | ✅/❌ | ⚠️ **pośrednio (EDR)** | ⚠️ **pośrednio (EDR)** |
+| SpO₂ | ✅ medical | ✅ medical | ✅ | ✅ konsumencki | ❌ |
+| Wysiłek oddechowy | ✅ pasy RIP | ✅ pasy | ❌ | ✅ **ACC na klatce** | ✅ **ACC na klatce** |
+| Pozycja ciała | ✅ | ✅ | ❌ | ✅ **ACC grawitacja** | ✅ **ACC grawitacja** |
 
 ---
 
@@ -913,8 +937,29 @@ wystarczające. Niższa częstotliwość = mniejsze zużycie baterii i transferu
                                           │  → eAHI          │
                                           │  → event list    │
                                           │  → night report  │
-                                          └──────────────────┘
+                                           └──────────────────┘
 ```
+
+#### 8.1.1 Tryby pracy — adaptacja do dostępnych sensorów
+
+System SleepyHead dynamicznie dostosowuje aktywne ścieżki przetwarzania
+do dostępnych sensorów. W każdym trybie scorer dostosowuje reguły i pewność wyników.
+
+**Tryb 1 — H10 only (Milestone 1):**
+- ✅ Aktywne ścieżki: RR → CVHR, ECG → EDR, ACC → respiratory effort + body position
+- ❌ Wyłączone: ODI, SpO₂ desaturation, T90%
+- eAHI oznaczony jako „szacunkowy (bez SpO₂)" — informacja widoczna w UI
+- Zdarzenia z obniżonym poziomem pewności względem trybu pełnego
+
+**Tryb 2 — H10 + pulsoksymetr (Milestone 2):**
+- ✅ Wszystkie ścieżki aktywne: RR + ECG + ACC + SpO₂
+- Pełna fuzja kanałów — wyższa pewność i dokładność scorera
+- eAHI oznaczony jako „pełna konfiguracja"
+
+**Tryb 3 — pulsoksymetr only *(przyszłość)*:**
+- ✅ Aktywne ścieżki: SpO₂ + PR → ODI
+- ❌ Wyłączone: CVHR, EDR, ACC (respiratory effort, body position)
+- Odpowiednik badania Typ IV — wykrywa ciężki OSA z desaturacją
 
 ### 8.2 Per-epoch scoring
 
@@ -955,6 +1000,22 @@ APNEA TYPE:
 SEVERITY MODIFIER:
   IF spo2_nadir < 80%  → SEVERE desaturation flag
   IF qt_prolongation    → Cardiac risk flag
+```
+
+#### Reguły dla Polar H10 only (bez SpO₂)
+
+```
+APNEA EVENT detected (H10 only mode) IF:
+  (cvhr_flag = TRUE AND edr_cessation = TRUE)   → MEDIUM confidence
+  OR
+  (cvhr_flag = TRUE AND cvhr_delta_hr > 15)      → LOW-MEDIUM confidence
+  OR
+  (edr_cessation = TRUE AND acc_effort = ABSENT) → LOW confidence (CSA suspect)
+
+CONFIDENCE MODIFIER (H10 only):
+  - Wszystkie zdarzenia obniżone o jeden poziom vs. tryb pełny
+  - eAHI = "szacunkowy (bez SpO₂)" — informacja wyświetlana użytkownikowi
+  - Reguły oparte na spo2_desat / spo2_nadir / ODI są NIEAKTYWNE
 ```
 
 ### 8.4 Estymacja AHI
@@ -1008,9 +1069,10 @@ korelację SleepyHead z referencyjnymi metodami diagnostycznymi.
 |---|---|---|---|---|---|
 | **Tylko RR interwały (CVHR)** | 0.55–0.70 | 70–80% | 65–75% | 50–60% | 55–65% |
 | **RR + surowe EKG (CVHR + EDR)** | 0.65–0.80 | 75–85% | 70–80% | 55–70% | 60–75% |
-| **RR + EKG + ACC** | 0.65–0.80 | 75–85% | 70–80% | 55–70% | 60–75% |
+| **Polar H10 only — RR + EKG + ACC (Milestone 1)** ★ baseline | 0.65–0.80 | 75–85% | 70–80% | 55–70% | 60–75% |
+| **Tylko SpO₂ (ODI)** | 0.65–0.75 | 75–85% | 70–80% | 50–65% | 55–65% |
 | **RR + SpO₂ (CVHR + ODI)** | 0.75–0.88 | 82–90% | 75–85% | 65–80% | 65–80% |
-| **RR + EKG + ACC + SpO₂ (pełny)** | **0.80–0.92** | **85–93%** | **80–90%** | **70–85%** | **70–85%** |
+| **Polar H10 + pulsoksymetr — RR + EKG + ACC + SpO₂ (Milestone 2)** | **0.80–0.92** | **85–93%** | **80–90%** | **70–85%** | **70–85%** |
 
 #### Tabela B: Korelacja z poligrafią Typ III
 
@@ -1139,22 +1201,24 @@ HeartRateMonitorPort                    ← istniejący port
 
 | Komponent | Decyzja | Uzasadnienie |
 |---|---|---|
-| Pas na klatkę piersiową | **Polar H10** (posiadany) | Jedyny pas z EKG+ACC+SDK w tej cenie. Walidowany badawczo. |
-| Pulsoksymetr (główny) | **BerryMed BM1000C** (~100 PLN, do zakupu) | Standardowy BLE PLX (`0x1822`). Łatwa integracja (~50 LOC). Patrz §3.2.1. |
+| Pas na klatkę piersiową | **Polar H10** (posiadany) | Jedyny pas z EKG+ACC+SDK w tej cenie. Walidowany badawczo. Samodzielny system pre-screeningu (Milestone 1). |
+| Pulsoksymetr (główny) | **BerryMed BM1000C** (~100 PLN, **opcjonalny, zalecany do Milestone 2**) | Standardowy BLE PLX (`0x1822`). Łatwa integracja (~50 LOC). Patrz §3.2.1. |
 | Pulsoksymetr (alternatywny) | **Wellue SleepU** (posiadany) | Proprietarny protokół Viatom = wyższe ryzyko, ale już posiadany |
-| **Łączny koszt sprzętu** | **~450–550 PLN** | Polar H10 (~350 PLN) + BerryMed BM1000C (~100 PLN) |
+| **Konfiguracja minimalna (Milestone 1)** | **Polar H10 (~350 PLN)** | Samodzielny, w pełni funkcjonalny system pre-screeningu — żaden dodatkowy sprzęt nie jest wymagany |
+| **Łączny koszt sprzętu** | **Milestone 1: ~350 PLN \| Milestone 2: ~450–550 PLN** | Polar H10 (~350 PLN) + opcjonalnie BerryMed BM1000C (~100 PLN) |
 
 ### 11.2 Strategia integracji
 
-| Faza | Opis | Priorytet |
-|---|---|---|
-| **1. Pulsoksymetr BLE PLX** | Adapter generic GATT PLX, real-time streaming | ★★★★★ |
-| **2. EKG streaming z Polar H10** | `FEATURE_POLAR_ONLINE_STREAMING` + R-peak detection + EDR | ★★★★☆ |
-| **3. ACC streaming z Polar H10** | Respiratory effort + body position | ★★★★☆ |
-| **4. CVHR detector** | Detekcja cykli bradykardia-tachykardia z serii RR | ★★★★☆ |
-| **5. Apnea Scorer** | Fuzja wszystkich kanałów → eAHI + raport nocny | ★★★★★ |
-| **6. Adapter Wellue SleepU** | Proprietarny protokół Viatom jako alternatywa PLX | ★★☆☆☆ |
-| **7. Adapter CooSpo / generic HR** | Standard BLE HR (0x180D) — wersja „light" | ★★☆☆☆ |
+| Faza | Opis | Priorytet | Milestone |
+|---|---|---|---|
+| **1. EKG streaming z Polar H10** | `FEATURE_POLAR_ONLINE_STREAMING` + R-peak detection + EDR | ★★★★★ | M1 |
+| **2. ACC streaming z Polar H10** | Respiratory effort + body position | ★★★★★ | M1 |
+| **3. CVHR detector** | Detekcja cykli bradykardia-tachykardia z serii RR | ★★★★☆ | M1 |
+| **4. Apnea Scorer (H10-only mode)** | Fuzja kanałów EKG+ACC+RR → eAHI (bez SpO₂) | ★★★★★ | **✅ M1 gotowy** |
+| **5. Pulsoksymetr BLE PLX** | Adapter generic GATT PLX, real-time SpO₂ streaming | ★★★★☆ | M2 |
+| **6. Apnea Scorer (enhanced mode)** | Fuzja wszystkich kanałów z SpO₂ → wyższa dokładność eAHI | ★★★★★ | **✅ M2 gotowy** |
+| **7. Adapter Wellue SleepU** | Proprietarny protokół Viatom jako alternatywa PLX | ★★☆☆☆ | Opcja |
+| **8. Adapter CooSpo / generic HR** | Standard BLE HR (0x180D) — wersja „light" (RR only) | ★★☆☆☆ | Opcja |
 
 ### 11.3 Algorytm scoringu
 
