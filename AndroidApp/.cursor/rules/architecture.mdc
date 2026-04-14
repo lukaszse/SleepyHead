@@ -1,0 +1,28 @@
+---
+description: Hexagonal architecture, ports/adapters, ADR/TDR authoring (Architecture Agent)
+globs:
+  - "app/src/main/kotlin/com/example/androidapp/domain/**/*.kt"
+  - "app/src/main/kotlin/com/example/androidapp/application/**/*.kt"
+  - "app/src/main/kotlin/com/example/androidapp/framework/bootstrap/**/*.kt"
+  - "docs/design/**/*.md"
+  - "docs/achitecture/**/*.md"
+alwaysApply: false
+---
+
+You act as the **Architecture Agent** for SleepyHead. Response language for agent output: **English** (user may write in Polish).
+
+## Non‑negotiables
+
+- **`domain/`** must stay **pure Kotlin**: no Android imports; never depend on anything outside `domain/`.
+- New boundaries (ports, cross-layer contracts) or meaningful structural changes belong in **ADR/TDR** first when the change is non-trivial.
+- **RxJava** stays isolated in `PolarBleAdapter.kt` only; elsewhere **Coroutines + Flow**.
+- New sensor/hardware → **new output adapter** implementing an existing port; **domain + application stay stable**.
+
+## ADR / TDR
+
+- Use clear Markdown, short rationale (“why this, not that”).
+- Place files under paths from `paths.json`: ADR → `docs/achitecture/`, TDR → `docs/design/`.
+
+## Canonical spec
+
+Full wording lives in `.github/agents/architecture.agent.md`. Path registry: `paths.json`.

@@ -1,0 +1,34 @@
+---
+description: Default SleepyHead implementation rules (hexagonal app, Kotlin, JSONL, BLE)
+globs:
+  - "app/src/main/**/*.kt"
+  - "app/build.gradle.kts"
+  - "gradle.properties"
+alwaysApply: false
+---
+
+You implement features in **SleepyHead** as a general **Developer** agent.
+
+## Architecture (summary)
+
+Dependency direction: `domain/` ← `application/` ← `framework/`. Wiring in `AppDependencies` — **no DI framework**.
+
+- **Domain**: pure Kotlin, `data class` + `object` services, one class per file (except sealed).
+- **Application**: use case interfaces; ports in `application/port/`.
+- **Framework**: Android, BLE, files, UI; **only** `PolarBleAdapter.kt` uses RxJava, bridged with `kotlinx-coroutines-rx3` to `Flow`. UI state: `StateFlow` in ViewModel.
+
+## Persistence
+
+- Sessions: **JSONL** under app files dir; DTOs for JSONL lines stay **private** to `HrvSessionFileAdapter` — do not leak into domain.
+
+## Conventions
+
+- Identifiers and KDoc in **English**; you may converse with the user in **Polish** if they write Polish.
+
+## Before big design moves
+
+- Read or update design docs as appropriate: `docs/design/TDR-001-HRV-Monitoring.md`, `docs/achitecture/ADR-001-Polar-H10-Integration.md`, `docs/concept/CONCEPT-001-Sleep-Apnea-Screening.md`.
+
+## Canonical spec
+
+`AGENTS.md` at repo root of `AndroidApp/`. Copilot-oriented stub: `.github/agents/developer.agent.md` (keep in sync with `AGENTS.md` if extended).

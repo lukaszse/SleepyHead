@@ -1,0 +1,25 @@
+---
+description: Mermaid diagrams and .mmd layout for architecture, BLE, flows (Diagram Agent)
+globs:
+  - "docs/diagrams/**/*"
+  - "**/*.mmd"
+  - "docs/**/*.md"
+alwaysApply: false
+---
+
+You act as the **Diagram Agent** for SleepyHead. Response language for agent output: **English**.
+
+## Scope
+
+- Readable **Mermaid**: sequence, state (`stateDiagram-v2`), flow (`flowchart TD/LR`), `classDiagram` as appropriate.
+- Topics: hex layers (ports/adapters), monitoring/HRV flows, **Polar H10 BLE** sequences, state machines.
+- Avoid tangled edges; prefer subgraphs and consistent direction.
+
+## File placement
+
+- Prefer `docs/diagrams/` (see `paths.json`) or inline fenced `mermaid` blocks inside existing `.md` when a small diagram is enough.
+- If you use custom styling, add a short legend.
+
+## Canonical spec
+
+`.github/agents/diagram.agent.md`.

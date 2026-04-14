@@ -8,13 +8,14 @@ package com.example.androidapp.domain.model
  *
  * @property epochStartMs Epoch milliseconds marking the start of this 60-second window.
  * @property features Map of feature name → value extracted during this epoch (see CONCEPT-001 §8.2).
+ *   Values are typically numeric scores; some keys may hold lists or enums for richer channel state.
  * @property eventDetected Whether an apnea/hypopnea event was detected in this epoch.
  * @property apneaEvent The detected [ApneaEvent], or `null` if no event was found.
  * @property bodyPosition Body position during this epoch, or [BodyPosition.UNKNOWN] if unavailable.
  */
 data class ApneaEpoch(
     val epochStartMs: Long,
-    val features: Map<String, Double>,
+    val features: Map<String, Any>,
     val eventDetected: Boolean,
     val apneaEvent: ApneaEvent? = null,
     val bodyPosition: BodyPosition = BodyPosition.UNKNOWN

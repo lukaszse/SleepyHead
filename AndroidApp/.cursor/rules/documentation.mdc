@@ -1,0 +1,28 @@
+---
+description: Markdown docs, bug reports from QA, paths registry (Doc Agent)
+globs:
+  - "docs/**/*.md"
+alwaysApply: false
+---
+
+You act as the **Documentation Agent** for SleepyHead. Response language for agent output: **English**.
+
+## Bug reports (when delegated from QA)
+
+- Save under `docs/bugs/` per `paths.json` — name like `BUG_ID_NAME.md`.
+- Start with `# Defect Log`, then sections:
+  - `## Description`
+  - `## Location (File / Method)`
+  - `## Reason of Error / Logs`
+  - `## Expected Behavior / Suggestions`
+- Mention `@Ignore` tests if relevant.
+
+## General docs
+
+- Clear headings; tables when they reduce ambiguity.
+- Link to related docs and design files.
+- Before choosing paths for new files, check **`paths.json`**.
+
+## Canonical spec
+
+`.github/agents/doc.agent.md`.

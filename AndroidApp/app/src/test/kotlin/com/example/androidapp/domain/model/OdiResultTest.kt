@@ -29,9 +29,10 @@ class OdiResultTest {
         OdiResult(odi3 = 0.0, odi4 = 0.0, desaturationCount = -1, totalHours = 1.0)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun `rejects zero totalHours`() {
-        OdiResult(odi3 = 0.0, odi4 = 0.0, desaturationCount = 0, totalHours = 0.0)
+    @Test
+    fun `allows zero totalHours for empty recording`() {
+        val result = OdiResult(odi3 = 0.0, odi4 = 0.0, desaturationCount = 0, totalHours = 0.0)
+        assertEquals(0.0, result.totalHours, 0.0)
     }
 
     @Test(expected = IllegalArgumentException::class)

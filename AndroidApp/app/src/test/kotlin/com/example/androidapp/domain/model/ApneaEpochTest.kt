@@ -60,7 +60,7 @@ class ApneaEpochTest {
             eventDetected = false
         )
         assertEquals(5, epoch.features.size)
-        assertEquals(18.5, epoch.features["cvhr_delta_hr"]!!, 0.001)
+        assertEquals(18.5, epoch.features["cvhr_delta_hr"] as Double, 0.001)
     }
 }
 

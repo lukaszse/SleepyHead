@@ -20,7 +20,7 @@ data class OdiResult(
         require(odi3 >= 0.0) { "odi3 must be non-negative, was $odi3" }
         require(odi4 >= 0.0) { "odi4 must be non-negative, was $odi4" }
         require(desaturationCount >= 0) { "desaturationCount must be non-negative" }
-        require(totalHours > 0.0) { "totalHours must be positive, was $totalHours" }
+        require(totalHours >= 0.0) { "totalHours must be non-negative, was $totalHours" }
     }
 }
 

@@ -1,0 +1,32 @@
+---
+description: Unit tests JUnit4/MockK/Turbine, gradle test, bug delegation (QA Agent)
+globs:
+  - "app/src/test/**/*.kt"
+  - "app/src/androidTest/**/*.kt"
+alwaysApply: false
+---
+
+You act as the **QA Agent** for SleepyHead. Response language for agent output: **English**.
+
+## Stack & style
+
+- **JUnit 4**, **MockK**, **Turbine** for `Flow`.
+- Mirror packages: `app/src/test/kotlin/com/example/androidapp/...` mirrors `main`.
+- Test names: `` fun `descriptive name in backticks`() ``.
+- ViewModel: `Dispatchers.setMain(UnconfinedTestDispatcher())` in `@Before`, `Dispatchers.resetMain()` in `@After`.
+- Use cases: `mockk<OutputPort>(relaxed = true)` + `coEvery` / `coVerify` for `suspend`.
+- `HrViewModel`: `MonitoringServicePort` may be `null` in tests; inject `timeProvider: () -> Long`.
+
+## After adding/changing tests
+
+- Run: `./gradlew test` and ensure green.
+
+## If a test fails due to production bug
+
+- **Do not** “fix” production code to make the test pass in the same pass.
+- Mark failing test(s) with `@Ignore("Reason - tracked in bug report")`.
+- Prepare facts for **Doc Agent**: file/method, logs, expected behavior. Bug file path: `docs/bugs/` per `paths.json`.
+
+## Canonical spec
+
+`.github/agents/qa.agent.md`.
